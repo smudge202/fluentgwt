@@ -1,0 +1,13 @@
+﻿# Default ignored files
+/shelf/
+/workspace.xml
+# Rider ignored files
+/contentModel.xml
+/projectSettingsUpdater.xml
+/modules.xml
+/.idea.fluent-testing.iml
+# Datasource local storage ignored files
+/../../../../../../../../../../:\Users\pete_\source\repos\smudge202\fluent-testing\.idea\.idea.fluent-testing.dir\.idea/dataSources/
+/dataSources.local.xml
+# Editor-based HTTP Client requests
+/httpRequests/

@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1708902D-B841-4B1A-B366-E4DDBD222A36}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{1894AAD8-8C3B-4747-A708-3294BF8B1958}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Devbot.FluentTesting.Tests", "tests\Devbot.FluentTesting.Tests\Devbot.FluentTesting.Tests.csproj", "{F8F8A700-5E63-4D19-94E6-199225AB298F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Devbot.FluentTesting", "src\Devbot.FluentTesting\Devbot.FluentTesting.csproj", "{F5787A13-B402-4B8B-B6B3-1F116B90F38C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F8F8A700-5E63-4D19-94E6-199225AB298F} = {1894AAD8-8C3B-4747-A708-3294BF8B1958}
+		{F5787A13-B402-4B8B-B6B3-1F116B90F38C} = {1708902D-B841-4B1A-B366-E4DDBD222A36}
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F8F8A700-5E63-4D19-94E6-199225AB298F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8F8A700-5E63-4D19-94E6-199225AB298F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8F8A700-5E63-4D19-94E6-199225AB298F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8F8A700-5E63-4D19-94E6-199225AB298F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5787A13-B402-4B8B-B6B3-1F116B90F38C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5787A13-B402-4B8B-B6B3-1F116B90F38C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5787A13-B402-4B8B-B6B3-1F116B90F38C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5787A13-B402-4B8B-B6B3-1F116B90F38C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

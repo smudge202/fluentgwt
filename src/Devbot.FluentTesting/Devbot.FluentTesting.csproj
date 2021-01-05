@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>9</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Devbot.FluentGwt</AssemblyName>
+    <RootNamespace>FluentGwt</RootNamespace>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Compile Update="Given.Base.cs">
+      <DependentUpon>Given.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Given.Extensions.cs">
+      <DependentUpon>Given.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Given.Targeted.cs">
+      <DependentUpon>Given.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Given.Untargeted.cs">
+      <DependentUpon>Given.cs</DependentUpon>
+    </Compile>
+    <Compile Update="State.Extensions.cs">
+      <DependentUpon>State.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+</Project>

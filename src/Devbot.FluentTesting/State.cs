@@ -4,11 +4,30 @@ using System.Threading.Tasks;
 
 namespace FluentGwt
 {
-    public sealed record State
+    public static class State
     {
+        public static Given Given<T>(T value) =>
+            Given(StateHolder.DefaultKey, value);
+
+        public static Given Given<T>(string name, T value) => 
+            Given((object)name, value);
+
+        public static Given Given<T>(object key, T value)
+        {
+            var given = new Given();
+            given.AddState(key, _ => Task.FromResult(value));
+            return given;
+        }
+
+        public static Given Given(Action action)
+        {
+            var given = new Given();
+            given.AddState(_ => action.AsAsync());
+            return given;
+        }
     }
     
-    public abstract record State<T>
+    public abstract record State<T> : StateHolder
     {
         protected abstract Func<T> Target { get; }
         private ConcurrentQueue<Func<T, Task>> States { get; } = new();

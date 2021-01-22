@@ -16,18 +16,29 @@ namespace FluentGwt
              given.AddState(state.AsAsync());
              return given;
         }
+
+        public static Given Given<T>(this Given given, Action<T> state) =>
+            given.Given(StateHolder.DefaultKey, state);
+
+        public static Given Given<T>(this Given given, string name, Action<T> state) =>
+            given.Given((object) name, state);
         
-        public static Given Given<T>(this State _, T state)
+        public static Given Given<T>(this Given given, object key, Action<T> state)
         {
-            var given = new Given();
-            given.AddState(_ => Task.FromResult(state));
+            given.AddState(async x => { state(await x.GetState<T>(key)); });
             return given;
         }
 
-        public static void Given<T>(this Given given, Action<T> state) =>
-            given.AddState(async x =>
-            {
-                state(await x.GetState<T>());
-            });
+        public static Given Given<T>(this Given given, T state) =>
+            given.Given(StateHolder.DefaultKey, state);
+
+        public static Given Given<T>(this Given given, string name, T state) =>
+            given.Given((object) name, state);
+        
+        public static Given Given<T>(this Given given, object key, T state)
+        {
+            given.AddState(key, _ => Task.FromResult(state));
+            return given;
+        }
     }
 }

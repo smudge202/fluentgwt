@@ -24,6 +24,9 @@
     <Compile Update="State.Extensions.cs">
       <DependentUpon>State.cs</DependentUpon>
     </Compile>
+    <Compile Update="StateHolder.Extensions.cs">
+      <DependentUpon>StateHolder.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
 
 </Project>

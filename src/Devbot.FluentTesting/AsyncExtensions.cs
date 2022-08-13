@@ -5,14 +5,14 @@ namespace FluentGwt
 {
     internal static class AsyncExtensions
     {
-        public static Task AsAsync(this Action state)
+        public static Task AsCompletedTask(this Action state)
         {
             // ReSharper disable once ConstantConditionalAccessQualifier
             state?.Invoke();
             return Task.CompletedTask;
         }
         
-        public static Func<T, Task> AsAsync<T>(this Action<T> state) => x =>
+        public static Func<T, Task> AsCompletedTask<T>(this Action<T> state) => x =>
         {
             // ReSharper disable once ConstantConditionalAccessQualifier
             state?.Invoke(x);

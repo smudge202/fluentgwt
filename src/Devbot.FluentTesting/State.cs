@@ -22,7 +22,7 @@ namespace FluentGwt
         public static Given Given(Action action)
         {
             var given = new Given();
-            given.AddState(_ => action.AsAsync());
+            given.AddState(_ => action.AsCompletedTask());
             return given;
         }
     }

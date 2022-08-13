@@ -9,11 +9,11 @@ namespace FluentGwt
             new(target);
         
         public static Given<T> Given<T>(this T target, Action<T> state) => 
-            new (target, state.AsAsync());
+            new (target, state.AsCompletedTask());
 
         public static Given<T> Given<T>(this Given<T> given, Action<T> state)
         {
-             given.AddState(state.AsAsync());
+             given.AddState(state.AsCompletedTask());
              return given;
         }
 
@@ -31,6 +31,12 @@ namespace FluentGwt
 
         public static Given Given<T>(this Given given, T state) =>
             given.Given(StateHolder.DefaultKey, state);
+
+        public static Given Given(this Given given, Action state)
+        {
+            given.AddState(_ => state.AsCompletedTask());
+            return given;
+        }
 
         public static Given Given<T>(this Given given, string name, T state) =>
             given.Given((object) name, state);

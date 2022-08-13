@@ -7,14 +7,6 @@ namespace FluentGwt.Tests
 {
     public partial class GivenTests
     {
-        private Foo? _foo;
-
-        private sealed class Foo
-        {
-            public int? Bar { get; set; }
-            public int? Baz { get; set; }
-        }
-        
         private Func<Given<GivenTests>> SelfGiven => 
             () => this.Given(x => x._foo = new Foo());
         
@@ -39,14 +31,21 @@ namespace FluentGwt.Tests
         }
         
         [Fact]
-        public void CanInstantiateGivenWithSelfDeferredState()
+        public void CanInstantiateSelfGivenWithDeferredState()
         {
             Action act = () => SelfGiven();
             act.Should().NotThrow();
         }
 
         [Fact]
-        public async Task CanExecuteGivenWithSelfDeferredState()
+        public void CanDeferSelfGivenState()
+        {
+            SelfGiven();
+            _foo.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task CanExecuteSelfGivenWithDeferredState()
         {
             var given = SelfGiven();
             await given.Execute();
@@ -75,14 +74,21 @@ namespace FluentGwt.Tests
             () => _foo!.Bar.Should().Be(ExpectedBar);
 
         [Fact]
-        public void CanInstantiateGivenWithTargetedDeferredState()
+        public void CanInstantiateTargetedGivenWithDeferredState()
         {
             Action act = () => TargetedGiven();
             act.Should().NotThrow();
         }
 
         [Fact]
-        public async Task CanExecuteGivenWithTargetedDeferredState()
+        public void CanDeferTargetedGivenState()
+        {
+            TargetedGiven();
+            _foo!.Bar.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task CanExecuteTargetedGivenWithDeferredState()
         {
             var given = TargetedGiven();
             await given.Execute();

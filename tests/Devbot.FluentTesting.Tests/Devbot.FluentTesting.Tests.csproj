@@ -30,9 +30,6 @@
   </ItemGroup>
   
   <ItemGroup>
-    <Compile Update="GivenTests.Extensions.cs">
-      <DependentUpon>GivenTests.cs</DependentUpon>
-    </Compile>
     <Compile Update="GivenTests.Targeted.cs">
       <DependentUpon>GivenTests.cs</DependentUpon>
     </Compile>

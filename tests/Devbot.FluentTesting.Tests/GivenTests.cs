@@ -1,4 +1,5 @@
-﻿using Bogus;
+﻿using System.Threading.Tasks;
+using Bogus;
 
 namespace FluentGwt.Tests
 {
@@ -8,6 +9,8 @@ namespace FluentGwt.Tests
         private Randomizer Random => Randomizer;
         
         private Foo? _foo;
+
+        private static Task<Foo> AsyncFoo() => Task.FromResult(new Foo());
 
         private sealed class Foo
         {

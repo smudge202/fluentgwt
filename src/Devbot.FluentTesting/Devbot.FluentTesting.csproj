@@ -12,17 +12,17 @@
     <Compile Update="Given.Base.cs">
       <DependentUpon>Given.cs</DependentUpon>
     </Compile>
-    <Compile Update="Given.Extensions.cs">
+    <Compile Update="Given.TargetedExtensions.cs">
       <DependentUpon>Given.cs</DependentUpon>
     </Compile>
     <Compile Update="Given.Targeted.cs">
       <DependentUpon>Given.cs</DependentUpon>
     </Compile>
-    <Compile Update="Given.Untargeted.cs">
+    <Compile Update="Given.UntargetedExtensions.cs">
       <DependentUpon>Given.cs</DependentUpon>
     </Compile>
-    <Compile Update="State.Extensions.cs">
-      <DependentUpon>State.cs</DependentUpon>
+    <Compile Update="Given.Untargeted.cs">
+      <DependentUpon>Given.cs</DependentUpon>
     </Compile>
     <Compile Update="StateHolder.Extensions.cs">
       <DependentUpon>StateHolder.cs</DependentUpon>

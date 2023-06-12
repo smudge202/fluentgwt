@@ -3,14 +3,15 @@ using System.Threading.Tasks;
 
 namespace FluentGwt
 {
-    public record Given<T> : GivenBase<T>
+    public sealed record Given<T> : GivenBase<T>
     {
-        protected override Func<T> Target { get; }
-        
-        public Given(T target) => 
-            Target = () => target;
+        protected override Func<T> Target => 
+            () => GetState<T>(DefaultKey);
 
-        public Given(T target, Func<T, Task> state)
-            : this(target) => AddState(state);
+        internal Given(T target) =>
+            AddState(DefaultKey, () => target);
+
+        internal Given(T target, Func<T, Task> transition)
+            : this(target) => AddTransition(transition);
     }
 }

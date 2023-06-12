@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 
 namespace FluentGwt
 {
@@ -11,34 +10,39 @@ namespace FluentGwt
 
         private static class Holder<T>
         {
-            public static readonly ConditionalWeakTable<StateHolder, Lazy<ConcurrentDictionary<object, Task<T>>>>
+            public static readonly ConditionalWeakTable<StateHolder, Lazy<ConcurrentDictionary<object, T>>>
                 Store = new();
         }
 
         // TODO: try to provide access to derived type
-        internal void AddState<T>(object key, Func<StateHolder, Task<T>> state)
+        internal void AddState<T>(object key, Func<T> state)
         {
+            if (key == null)
+                throw new ArgumentNullException(nameof(key));
+            
             if (Holder<T>.Store.TryGetValue(this, out var lazy))
-                lazy.Value.AddOrUpdate(key, async _ => await state(this),
-                    async (_, _) => await state(this));
+                lazy.Value.AddOrUpdate(key, 
+                    _ => state(),
+                    (_, _) => state());
             else
-                Holder<T>.Store.Add(this, new Lazy<ConcurrentDictionary<object, Task<T>>>(() =>
+                Holder<T>.Store.Add(this, new Lazy<ConcurrentDictionary<object, T>>(() =>
                 {
                     // TODO: consider something more lightweight
-                    var dictionary = new ConcurrentDictionary<object, Task<T>>();
-                    dictionary.AddOrUpdate(key, async _ => await state(this),
-                        async (_, _) => await state(this));
+                    var dictionary = new ConcurrentDictionary<object, T>();
+                    dictionary.AddOrUpdate(key, 
+                        _ => state(),
+                        (_, _) => state());
                     return dictionary;
                 }));
         }
 
-        internal async Task<T> GetState<T>(object key)
+        internal T GetState<T>(object key)
         {
             var dictionary = Holder<T>.Store.TryGetValue(this, out var lazy)
                 ? lazy.Value
                 : throw new InvalidOperationException($"State for {typeof(T).Name} is not available");
             return dictionary.TryGetValue(key, out var state)
-                ? await state
+                ? state
                 : throw new InvalidOperationException($"State for {typeof(T).Name}({key}) is not available");
         }
     }

@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>9</LangVersion>
     <Nullable>enable</Nullable>
-    <AssemblyName>Devbot.FluentGwt</AssemblyName>
+    <AssemblyName>FluentGwt</AssemblyName>
     <RootNamespace>FluentGwt</RootNamespace>
   </PropertyGroup>
   

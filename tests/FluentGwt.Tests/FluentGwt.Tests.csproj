@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Devbot.FluentTesting\Devbot.FluentTesting.csproj" />
+    <ProjectReference Include="..\..\src\FluentGwt\FluentGwt.csproj" />
   </ItemGroup>
   
   <ItemGroup>

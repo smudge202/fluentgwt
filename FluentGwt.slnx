@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FluentGwt/FluentGwt.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FluentGwt.Tests/FluentGwt.Tests.csproj" />
+  </Folder>
+</Solution>

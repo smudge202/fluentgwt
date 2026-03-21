@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Bogus;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace FluentGwt.Tests

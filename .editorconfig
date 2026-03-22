@@ -1,0 +1,59 @@
+root = true
+
+[*]
+indent_style = tab
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,md}]
+indent_style = space
+indent_size = 2
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:error
+csharp_style_var_for_built_in_types = true:error
+csharp_style_var_when_type_is_apparent = true:error
+csharp_style_var_elsewhere = true:error
+csharp_style_expression_bodied_methods = true:suggestion
+csharp_style_expression_bodied_constructors = true:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_style_prefer_primary_constructors = true:suggestion
+dotnet_style_qualification_for_field = false:error
+dotnet_style_qualification_for_property = false:error
+dotnet_style_qualification_for_method = false:error
+dotnet_style_qualification_for_event = false:error
+csharp_new_line_before_open_brace = all
+csharp_prefer_braces = when_multiline:suggestion
+
+dotnet_diagnostic.CS1998.severity = error
+dotnet_diagnostic.CS4014.severity = error
+
+dotnet_naming_rule.private_static_fields.symbols = private_static_fields
+dotnet_naming_rule.private_static_fields.style = underscore_pascal
+dotnet_naming_rule.private_static_fields.severity = error
+dotnet_naming_symbols.private_static_fields.applicable_kinds = field
+dotnet_naming_symbols.private_static_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_static_fields.required_modifiers = static
+dotnet_naming_style.underscore_pascal.required_prefix = _
+dotnet_naming_style.underscore_pascal.capitalization = pascal_case
+
+dotnet_naming_rule.private_fields.symbols = private_fields
+dotnet_naming_rule.private_fields.style = underscore_camel
+dotnet_naming_rule.private_fields.severity = error
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# The library's own interfaces and type parameters take no I or T prefix.
+dotnet_diagnostic.CA1715.severity = none
+# Test names state behaviour in WhenXThenY form; no underscores to remove.
+dotnet_diagnostic.CA1707.severity = none
+# ConfigureAwait(false) is an era artefact here: xunit v3 and ASP.NET Core have no synchronisation context to escape.
+dotnet_diagnostic.CA2007.severity = none
+
+[tests/**.cs]
+# Test classes are discovered by xunit, not instantiated by callers.
+dotnet_diagnostic.CA1515.severity = none

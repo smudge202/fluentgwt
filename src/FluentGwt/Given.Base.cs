@@ -1,7 +1,6 @@
-﻿namespace FluentGwt
+namespace FluentGwt;
+
+public abstract record GivenBase<T> : State<T>
 {
-    public abstract record GivenBase<T> : State<T>
-    {
-        
-    }
+
 }

@@ -14,10 +14,13 @@ public abstract record State<T> : StateHolder
 	internal void AddTransition(Func<T, Task> state) =>
 		Transitions.Enqueue(state);
 
-	internal async Task Execute()
+	internal async Task Execute() => await Arrange();
+
+	internal async Task<T> Arrange()
 	{
 		var target = Target();
 		while (Transitions.TryDequeue(out var state))
 			await state(target);
+		return target;
 	}
 }

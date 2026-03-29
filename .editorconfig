@@ -49,6 +49,8 @@ dotnet_naming_style.underscore_camel.capitalization = camel_case
 
 # The library's own interfaces and type parameters take no I or T prefix.
 dotnet_diagnostic.CA1715.severity = none
+# Given, When and Then are the DSL; that they are also Visual Basic keywords cannot be designed around.
+dotnet_diagnostic.CA1716.severity = none
 # Test names state behaviour in WhenXThenY form; no underscores to remove.
 dotnet_diagnostic.CA1707.severity = none
 # ConfigureAwait(false) is an era artefact here: xunit v3 and ASP.NET Core have no synchronisation context to escape.

@@ -2,9 +2,26 @@ using System.Runtime.CompilerServices;
 
 namespace FluentGwt;
 
-public sealed class Then<Target>(When<Target> when, Action<Target> assertion)
+public sealed class Then<Target>
 {
-	public TaskAwaiter GetAwaiter() => Execute().GetAwaiter();
+	private readonly When<Target> _when;
+	private readonly Func<Target, ValueTask> _assertion;
 
-	private async Task Execute() => assertion(await when.Act());
+	internal Then(When<Target> when, Func<Target, ValueTask> assertion)
+	{
+		_when = when;
+		_assertion = assertion;
+	}
+
+	public static implicit operator Task(Then<Target> then)
+	{
+		ArgumentNullException.ThrowIfNull(then);
+		return then.ToTask();
+	}
+
+	public Task ToTask() => Execute();
+
+	public TaskAwaiter GetAwaiter() => ToTask().GetAwaiter();
+
+	private async Task Execute() => await _assertion(await _when.Act());
 }

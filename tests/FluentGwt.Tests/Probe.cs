@@ -26,5 +26,11 @@ internal sealed class Probe
 		return Answer();
 	}
 
+	public async Task<object> AnswerEventually()
+	{
+		await Task.Yield();
+		return Answer();
+	}
+
 	public void Fail() => throw Failure;
 }

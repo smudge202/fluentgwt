@@ -9,6 +9,7 @@ public sealed partial class ChainTests
 		public Probe Probe { get; } = new();
 		public Func<Task> Chain { get; set; } = () => Task.CompletedTask;
 		public Func<object> Unawaited { get; set; } = () => new();
+		public Func<Then<Probe>>? Awaitable { get; set; }
 		public Exception? Failure { get; set; }
 		public object? Asserted { get; set; }
 	}

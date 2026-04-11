@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace FluentGwt;
 
 public sealed class When<Target>
@@ -21,6 +23,15 @@ public sealed class When<Target>
 			return ValueTask.CompletedTask;
 		});
 	}
+
+	[OverloadResolutionPriority(1)]
+	public Then<Target> Then(Func<Target, Task> assertion)
+	{
+		ArgumentNullException.ThrowIfNull(assertion);
+		return new(this, x => new ValueTask(assertion(x)));
+	}
+
+	public Then<Target> Then(Func<Target, ValueTask> assertion) => new(this, assertion);
 
 	internal async Task<Target> Act()
 	{

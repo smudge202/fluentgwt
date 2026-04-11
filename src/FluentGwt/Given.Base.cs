@@ -28,4 +28,13 @@ public abstract record GivenBase<T> : State<T>
 		ArgumentNullException.ThrowIfNull(act);
 		return new(this, x => ValueTask.FromResult(act(x)));
 	}
+
+	[OverloadResolutionPriority(1)]
+	public When<T, Result> When<Result>(Func<T, Task<Result>> act)
+	{
+		ArgumentNullException.ThrowIfNull(act);
+		return new(this, x => new ValueTask<Result>(act(x)));
+	}
+
+	public When<T, Result> When<Result>(Func<T, ValueTask<Result>> act) => new(this, act);
 }

@@ -27,6 +27,13 @@ public sealed partial class ChainTests
 			.Then(x => x.Asserted.Should().Be(1));
 
 	[Fact]
+	public Task WhenActReturnsTaskOfResultThenThenReceivesTheResult()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.AnswerEventually()).Then(result => x.Asserted = result))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().BeSameAs(x.Probe.Result));
+
+	[Fact]
 	public Task WhenChainIsNeverAwaitedThenActNeverRuns()
 		=> Context
 			.GivenUnawaitedChain(x => x.Probe.Given().When(p => p.Act()).Then(_ => { }))

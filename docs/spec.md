@@ -1,9 +1,9 @@
 # FluentGwt — behavioural specification
 
 Status: settled. Written 2026-10-08 as a clean-room specification; the owner's rulings of
-2026-10-08 on all eighteen open questions are folded in (see
-[Rulings, 2026-10-08](#33-rulings-2026-10-08)). Three new questions those rulings raise are listed
-there.
+2026-10-08 on all twenty-one open questions are folded in (see
+[Rulings, 2026-10-08](#33-rulings-2026-10-08)), including rulings 19–21, which supersede rulings 4
+and 5. No questions are open.
 
 This document describes **behaviour and capability only**. It was written from a reading of a
 Given/When/Then test library the owner co-wrote at a previous employer (2019–20), a broad survey of
@@ -164,9 +164,9 @@ after it — is awaited or converted to the `Task` a test method returns.
 | # | Phase | What runs |
 |---|---|---|
 | 1 | Immediate givens | Every given not marked deferred, in declaration order. State givens and transition givens interleave in the order written. |
-| 2 | Host start | Every test host configured by the chain (C17), built and started in declaration order. Unless integration is enabled, each host's application-registered hosted services are removed first (C12). |
+| 2 | Host start | Every test host configured by the chain (C17), built and started completely in declaration order — the application's own hosted services included, whether or not integration is enabled, less any the test removed in arrangement (C12). |
 | 3 | Deferred givens | Every deferred given, in the order it was deferred. |
-| 4 | Integration start | Only when integration is enabled (C12): every `IHostedService` in the fixture container, started in registration order. |
+| 4 | Integration start | Only when the test assembly carries the integration marker (C12): every `IHostedService` in the fixture container, started in registration order. |
 | 5 | Act | The When step and any `And` act steps, in order. Exactly once. |
 | 6 | Assert | Every Then and `And` assertion, in order. |
 | 7 | Teardown | Always, whether phases 1–6 succeeded or not: hosted services stopped in reverse order; teardown callbacks (C10) in reverse registration order; hosts stopped and disposed in reverse start order; the fixture container's provider disposed; the fixture disposed. |
@@ -740,7 +740,9 @@ configuration dictionary per host.
 - The same `IConfiguration` is registered in the fixture container with `TryAdd`, so a test's own
   registration wins.
 - `x.Configure(key, value)` overlays a value for this fixture only.
-- The integration switch (C12) and the seed override (C14) are read from this configuration.
+- The seed override (C14) is read from this configuration. Integration is **not**: it is decided
+  when the test assembly is built, and no configuration key or environment variable enables it
+  (C12).
 
 ### Example
 
@@ -772,9 +774,12 @@ public static Given<Fixture> GivenRegion(this Given<Fixture> given, string regio
 
 An integration test touches something outside the process. It must be skipped by default — with a
 visible reason — and run when a machine is set up for it. When it runs, the background parts of
-the system (`IHostedService`s: consumers, pollers, schedulers) must actually run for the duration
-of the act, and stop afterwards. When it does not run, those same background parts must stay out of
-component tests, including tests that host the real application.
+the system (`IHostedService`s: consumers, pollers, schedulers) in the fixture container must
+actually run for the duration of the act, and stop afterwards.
+
+A test that hosts the real application (C17) is a different case. The application starts as it
+would in production, background services and all; a test that does not want one of them running
+says so in its arrangement, by name.
 
 **Usage evidence, cautionary:** the gate was barely used. The survey found one test project that
 declared the switch (set to off) and *no* use of the gated attribute anywhere; meanwhile a suite
@@ -783,12 +788,40 @@ says, at the point of use, *why* a test is an integration test — so an ungated
 same thing stands out in review. The owner's 2016 work required exactly that declaration, and it is
 revived here.
 
+The old switch was a configuration value read at run time, so whether a run included integration
+tests depended on whichever settings file or environment variable happened to be present. Here
+the choice belongs to the build: it is visible in the command that produced the test assembly.
+
 ### Behaviour
 
-- **The switch** is the configuration value `EnableIntegration` (C11), so it can come from a
-  settings file or an environment variable. It is evaluated at run time, per test.
-  - Unset or empty is off. **Any non-empty string is on** — the old behaviour, kept. ⚠️ That
-    includes the string `false`; see [OQ19](#33-rulings-2026-10-08).
+- **The switch is an MSBuild property**, `FluentGwtIntegration`. Integration is enabled for a test
+  assembly built with it set to `true` — `dotnet test -p:FluentGwtIntegration=true`, or
+  `<FluentGwtIntegration>true</FluentGwtIntegration>` in the project or a `Directory.Build.props`.
+  Unset, empty or any other value is off (`true` is compared case-insensitively, as MSBuild
+  compares). There is **no run-time switch**: no configuration key, no environment variable (C11).
+- **The xunit package ships `buildTransitive` MSBuild targets**, so every project that references
+  the package, directly or transitively, imports them. When the property is `true` they:
+  1. **append** `INTEGRATION` to `DefineConstants`, so consumer code may use `#if INTEGRATION`.
+     Appended, never replacing: `DEBUG`, `TRACE` and the target-framework symbols survive. Nothing
+     in the library requires the symbol.
+  2. add an `AssemblyAttribute` item for `FluentGwt.IntegrationEnabledAttribute`, so the SDK's
+     generated assembly info carries the **marker** `[assembly: IntegrationEnabled]`.
+
+  When the property is not `true`, they do neither. Changing the property changes the generated
+  assembly info, so an incremental build recompiles; no clean build is needed.
+  - **Why a dedicated property** rather than `-p:DefineConstants=INTEGRATION`: a property set on
+    the command line replaces the project's `DefineConstants` outright, dropping `DEBUG`, `TRACE`
+    and the target-framework symbols — and a compilation symbol alone leaves nothing to read at
+    run time.
+- **The marker** `IntegrationEnabledAttribute` is an argument-less, assembly-level attribute defined
+  in the core package, so the core reads it without the xunit package. A project that does not use
+  the xunit package may write `[assembly: IntegrationEnabled]` itself.
+- **Where the marker is read.** The integration attributes read it from the assembly that declares
+  the test class; the fixture reads it from the assembly that declares its own runtime type, and
+  exposes the answer as `ServiceFixture.IntegrationEnabled`. Under the library's convention — a
+  nested `Fixture` in the test class — both are the test assembly. It is read per evaluation;
+  nothing is cached for the process. "Integration is enabled", everywhere in this document, means
+  the marker is present.
 - **Gating is attribute-only** (xunit package): `[IntegrationFact]` and `[IntegrationTheory]`.
   There is no chain step for it.
   - Each takes an `IntegrationJustification` and a reason, in that order, followed by the
@@ -798,13 +831,12 @@ revived here.
     the reason says *why*, in the author's words.
   - A zero justification or an empty reason is reported as a failed test, never run and never
     skipped.
-  - Both use xunit v3's native dynamic skip, so a disabled test is reported as *skipped* with the
-    message `Integration disabled (EnableIntegration is not set). Justification: NetworkIO,
-    MultipleThreads. Reason: <reason>`. For a theory, every row is skipped with that message.
-- **Consumer-side compilation gating** is the intended usage pattern on top of the attribute: a
-  consumer may wrap an integration test in its own `#if` preprocessor symbol, so a CI build that
-  lacks the dependency never compiles the test in. The library needs, and has, no support for this;
-  the README shows the pattern.
+  - Both use xunit v3's native dynamic skip. With the marker absent, the test is reported as
+    *skipped* with the message `Integration disabled (built without FluentGwtIntegration=true).
+    Justification: NetworkIO, MultipleThreads. Reason: <reason>`; for a theory, every row is
+    skipped with that message. With the marker present, the test runs.
+  - The attribute is written once per test. No `#if` around it is needed: an assembly built without
+    the property still compiles, discovers and reports every integration test, as skipped.
 - **Fixture-container hosted services** — when integration is enabled, phase 4 resolves every
   `IHostedService` in the fixture container and starts each with the test token, in registration
   order. Phase 7 stops them in reverse order with the test token.
@@ -813,26 +845,39 @@ revived here.
   - Services implementing `IHostedLifecycleService` receive the starting/started and
     stopping/stopped calls in the order the generic host would make them.
   - When integration is disabled, fixture-container hosted services are **not** started.
-- **Test-host hosted services** (AspNetCore package) — when integration is disabled, each test host
-  (C17) **removes the application's own `IHostedService` registrations** before it is built, so a
-  host-level component test is hermetic by default. The rule:
-  - A registration is the **framework's** if its implementation type is defined in an assembly
-    whose name is `Microsoft.AspNetCore`, `Microsoft.Extensions`, or starts with
-    `Microsoft.AspNetCore.` or `Microsoft.Extensions.`. Every other `IHostedService` registration is
-    the **application's**, and is removed ([OQ21](#33-rulings-2026-10-08)). So the web server's
-    own host service always stays, and the host still serves requests.
-  - The implementation type is the descriptor's implementation type; for an instance registration,
-    the instance's runtime type; for a factory registration, the type that declares the factory
-    method (for a lambda, the class it was written in, and so its assembly). Keyed registrations
-    are treated the same way.
-  - Removal runs after the application's own composition and before the test's host overrides
-    (C18), so a hosted service the test adds through `host.Services` is never removed.
-  - `host.KeepHostedService<Implementation>()` opts one application hosted service back in: every
-    registration whose implementation type (by the rule above) is `Implementation` survives the
-    removal. If no such registration exists, the test fails as an arrangement failure naming the
-    type, so a renamed service cannot silently stop being kept.
-  - When integration is enabled, nothing is removed and the host starts all of its hosted services,
-    as any host does. A host's hosted-service start failure is a host start failure (C17).
+- **Test-host hosted services** (AspNetCore package) — a test host (C17) starts **completely**,
+  including the application's own hosted services, **whether or not integration is enabled**. The
+  marker has no effect on hosts. A host's hosted-service start failure is a host start failure
+  (C17).
+- **Removing hosted services** (core) — extension methods on `IServiceCollection`, so they work on
+  the fixture's `Services` (keeping a service out of phase 4) and on `host.Services` (keeping it
+  out of a host). On `host.Services` they are recorded and replayed onto the application's
+  container after its own composition, in order with the test's other host overrides (C18).
+  - `RemoveHostedService<Implementation>()` and `RemoveHostedService(Type)` remove every
+    `IHostedService` registration whose implementation is exactly that type. A registration's
+    **implementation** is:
+    - for a type registration, the descriptor's implementation type;
+    - for an instance registration, the instance's runtime type;
+    - for a factory registration, the factory delegate's declared return type.
+      `AddHostedService<Implementation>(factory)` produces a delegate typed
+      `Func<IServiceProvider, Implementation>`, so the type is known without invoking it. A factory
+      declared as returning `IHostedService` or `object` has **no knowable implementation**: it is
+      never matched, and the library never invokes a factory to find out.
+  - Only unkeyed registrations are considered; the generic host never starts a keyed
+    `IHostedService`.
+  - If nothing matches, the test fails as an arrangement failure naming the type, and the message
+    gives the number of factory registrations with no knowable implementation, since the service
+    may be one of them. A renamed service therefore cannot silently start running again.
+  - `RemoveApplicationHostedServices()` removes every hosted service except the **framework's**. A
+    registration is the framework's if its implementation (by the rule above) is defined in an
+    assembly named `Microsoft.AspNetCore` or `Microsoft.Extensions`, or whose name starts with
+    `Microsoft.AspNetCore.` or `Microsoft.Extensions.`. The web server's own host service is
+    therefore never removed, and the host still serves requests. A factory registration with no
+    knowable implementation is kept, and written to the test output (C23). A framework hosted
+    service the application opted into itself (a health-check publisher, say) is kept too; a test
+    that does not want it names it with `RemoveHostedService(Type)`.
+  - Removal is a point in the sequence: a hosted service registered after it — by the test, through
+    `host.Services` — is kept.
 
 ### Example
 
@@ -846,62 +891,77 @@ public Task WhenOrderIsPublishedThenDispatchConsumesIt()
 		.Then(x => x.Dispatched.Should().ContainSingle());
 ```
 
-The consumer-side pattern, where CI does not have the message bus:
+Run with integration on a machine set up for it; without the property the test is reported as
+skipped:
+
+```shell
+dotnet test -p:FluentGwtIntegration=true
+```
+
+The symbol is there for code that only an integration build can compile — here, a given using a
+client package the project references only when the property is set:
 
 ```csharp
-#if MESSAGE_BUS
-	[IntegrationFact(IntegrationJustification.NetworkIO, "Publishes to the real message bus")]
-	public Task WhenOrderIsPublishedThenItIsAcknowledged()
-		=> Context
-			.GivenDefaults()
-			.GivenMessageBus()
-			.WhenPublishing(x => x.Order)
-			.Then(x => x.Acknowledged.Should().BeTrue());
+#if INTEGRATION
+	public static Given<Fixture> GivenMessageBus(this Given<Fixture> given)
+		=> given.Given(x => x.Services.AddMessageBusClient(x.Configuration));
 #endif
 ```
 
-A host-level test that needs one of the application's background services while integration is off:
+A host-level test that does not want the application's background work running:
 
 ```csharp
-public static Given<Fixture> GivenOutboxRelayRunning(this Given<Fixture> given)
-	=> given.Given(x => x.Api.KeepHostedService<OutboxRelay>());
+public static Given<Fixture> GivenNoOutboxRelay(this Given<Fixture> given)
+	=> given.Given(x => x.Api.Services.RemoveHostedService<OutboxRelay>());
+
+public static Given<Fixture> GivenNoBackgroundWork(this Given<Fixture> given)
+	=> given.Given(x => x.Api.Services.RemoveApplicationHostedServices());
 ```
 
 ### Acceptance criteria
 
-- `WhenEnableIntegrationIsTrueThenIntegrationFactRuns`
-- `WhenEnableIntegrationIsAnyNonEmptyValueThenIntegrationFactRuns`
-- `WhenEnableIntegrationIsUnsetThenIntegrationFactIsSkippedWithReason`
-- `WhenEnableIntegrationIsEmptyThenIntegrationFactIsSkipped`
-- `WhenEnableIntegrationIsSetByEnvironmentThenItOverridesSettingsFile`
-- `WhenIntegrationFactIsSkippedThenMessageCarriesJustificationAndReason`
-- `WhenIntegrationTheoryIsSkippedThenEveryRowIsSkippedWithTheMessage`
+- `WhenMarkerIsAbsentThenIntegrationFactIsSkippedWithJustificationAndReason`
+- `WhenMarkerIsPresentThenIntegrationFactRuns`
+- `WhenMarkerIsAbsentThenEveryIntegrationTheoryRowIsSkippedWithTheMessage`
+- `WhenMarkerIsPresentThenIntegrationTheoryRuns`
 - `WhenIntegrationFactHasNoJustificationOrReasonThenTestFails`
-- `WhenIntegrationIsEnabledThenHostedServicesStartBeforeTheAct`
-- `WhenIntegrationIsEnabledThenHostedServicesStopAfterAssertions`
-- `WhenIntegrationIsEnabledThenHostedServicesStopInReverseOrder`
+- `WhenIntegrationPropertyIsSetThenIntegrationSymbolIsDefined`
+- `WhenIntegrationPropertyIsSetThenMarkerIsEmitted`
+- `WhenIntegrationPropertyIsUnsetThenNoSymbolAndNoMarker`
+- `WhenIntegrationPropertyIsNotTrueThenNoSymbolAndNoMarker`
+- `WhenIntegrationPropertyIsSetThenOtherConstantsArePreserved`
+- `WhenXunitPackageIsReferencedTransitivelyThenTargetsStillApply`
+- `WhenMarkerIsPresentThenFixtureReportsIntegrationEnabled`
+- `WhenMarkerIsPresentThenHostedServicesStartBeforeTheAct`
+- `WhenMarkerIsPresentThenHostedServicesStopAfterAssertions`
+- `WhenMarkerIsPresentThenHostedServicesStopInReverseOrder`
+- `WhenMarkerIsAbsentThenHostedServicesAreNotStarted`
 - `WhenAssertionFailsThenHostedServicesAreStillStopped`
 - `WhenHostedServiceFailsToStartThenTestFailsAsArrangement`
-- `WhenIntegrationIsDisabledThenHostedServicesAreNotStarted`
 - `WhenHostedServiceStartsThenItReceivesTheTestToken`
 - `WhenLifecycleServiceIsRegisteredThenAllLifecycleCallsAreMade`
-- `WhenIntegrationIsDisabledThenTestHostDoesNotStartApplicationHostedServices`
-- `WhenIntegrationIsDisabledThenTestHostStillServesRequests`
-- `WhenIntegrationIsDisabledThenFrameworkHostedServicesAreKept`
-- `WhenApplicationHostedServiceIsRegisteredByFactoryThenItIsRemoved`
-- `WhenApplicationHostedServiceIsRegisteredAsInstanceThenItIsRemoved`
-- `WhenTestAddsHostedServiceThroughHostServicesThenItIsNotRemoved`
-- `WhenHostedServiceIsKeptThenItStartsWhileIntegrationIsDisabled`
-- `WhenKeptHostedServiceIsNotRegisteredThenArrangementFailsNamingTheType`
-- `WhenIntegrationIsEnabledThenTestHostStartsApplicationHostedServices`
+- `WhenMarkerIsAbsentThenTestHostStartsApplicationHostedServices`
+- `WhenMarkerIsPresentThenTestHostStartsApplicationHostedServices`
+- `WhenHostedServiceIsRemovedByTypeThenItDoesNotStart`
+- `WhenHostedServiceIsRegisteredAsInstanceThenRemovalByTypeRemovesIt`
+- `WhenHostedServiceIsRegisteredByTypedFactoryThenRemovalByTypeRemovesIt`
+- `WhenFactoryReturnTypeIsNotKnowableThenRemovalByTypeDoesNotMatchIt`
+- `WhenKeyedHostedServiceIsRegisteredThenRemovalIgnoresIt`
+- `WhenRemovedHostedServiceIsNotRegisteredThenArrangementFailsNamingTheType`
+- `WhenRemovalMatchesNothingThenMessageCountsUnknowableFactories`
+- `WhenHostedServiceIsRemovedFromFixtureServicesThenPhaseFourDoesNotStartIt`
+- `WhenApplicationHostedServicesAreRemovedThenFrameworkHostedServicesAreKept`
+- `WhenApplicationHostedServicesAreRemovedThenTestHostStillServesRequests`
+- `WhenApplicationHostedServicesAreRemovedThenUnknowableFactoriesAreKeptAndWritten`
+- `WhenTestAddsHostedServiceAfterRemovalThenItIsKept`
 
 ### Coverage
 
 - **2023: No.**
 - **2020: Yes, with defects.** A fact attribute deciding skip in its constructor (static, cached
-  for the process), with no justification; hosted services started and stopped around the act with
-  no cancellation, and start/stop failures logged and swallowed. No test hosts, so nothing to
-  suppress in them.
+  for the process) from a run-time configuration value, with no justification; hosted services
+  started and stopped around the act with no cancellation, and start/stop failures logged and
+  swallowed. No test hosts.
 
 ---
 
@@ -1186,14 +1246,17 @@ can host one area of an API).
 - **One host per test.** A host belongs to the fixture that declared it and lives for that one
   test; hosts are never shared across tests or across a class, and the library offers no
   class-shared host.
-- Unless integration is enabled, the application's own hosted services are removed before the host
-  is built, by the rule in C12; `host.KeepHostedService<Implementation>()` opts one back in.
+- A host starts **completely**, as the application would in production: the application's own
+  hosted services start with it, whether or not integration is enabled. A test that does not want
+  one running removes it in arrangement with `host.Services.RemoveHostedService<Implementation>()`
+  or `host.Services.RemoveApplicationHostedServices()` (C12).
 - Hosts are **built and started in phase 2**, after every immediate given, so overrides (C18)
   written anywhere in the chain apply. After start, further host overrides throw, mirroring C1.
-- A host that fails to start fails the test as an arrangement failure, carrying the startup
-  exception.
-- By default a host runs on the in-memory test server. `x.Host(...).OnSockets()` runs it on real
-  sockets instead, through the factory's Kestrel mode (C22).
+- A host that fails to start — including a hosted service of its own failing to start — fails the
+  test as an arrangement failure, carrying the startup exception.
+- By default a host runs on the in-memory test server. `x.Host<EntryPoint>().OnSockets()` runs an
+  entry-point host on real sockets instead, through the factory's Kestrel mode; a test-composed
+  host cannot be put on sockets (C22).
 - `host.CreateClient()` returns an `HttpClient` with the host's base address and **redirects not
   followed** (every suite in the survey turned them off to assert on 3xx responses).
 - `host.Address` is the base address; it is available from phase 2 onwards.
@@ -1236,6 +1299,7 @@ public static When<Fixture, HttpResponseMessage> WhenGettingForecast(this Given<
 - `WhenOverrideIsWrittenAfterHostDeclarationThenItStillApplies`
 - `WhenOverrideIsAttemptedAfterStartThenInvalidOperationIsThrown`
 - `WhenHostFailsToStartThenTestFailsWithTheStartupException`
+- `WhenApplicationHostedServiceFailsToStartThenTestFailsAsArrangement`
 - `WhenClientIsCreatedThenRedirectsAreNotFollowed`
 - `WhenChainEndsThenHostsAreDisposedInReverseOrder`
 - `WhenAssertionFailsThenHostsAreStillDisposed`
@@ -1262,7 +1326,8 @@ into a composite "default configuration" step — a workaround that disappears w
 ### Behaviour
 
 - `host.Services` is a collection applied to the application's container after its own
-  composition, with the `Override` semantics of C15.
+  composition, with the `Override` semantics of C15. Hosted-service removals made on it (C12) are
+  replayed onto the application's container in the same order as its registrations.
 - `host.Configure(key, value)` sets configuration with the highest precedence.
 - `host.Pipeline(app => ...)` inserts middleware at a designated point (immediately before endpoint
   mapping for a test-composed host; at the start of the pipeline for an entry-point host, through a
@@ -1527,8 +1592,15 @@ into the test project) and discovered the bound address by hand.
 - `.OnSockets()` runs the host through `WebApplicationFactory`'s Kestrel mode (`UseKestrel`, .NET
   10), never a Kestrel the library binds by hand. Through the factory's Kestrel options it binds
   loopback on an ephemeral port with HTTPS using a certificate **generated in memory for the test
-  run** (never a file in the repository). For a test-composed host, see
-  [OQ20](#33-rulings-2026-10-08).
+  run** (never a file in the repository).
+- **Entry-point hosts only.** Socket hosting is available only for a host built from a real entry
+  point (`x.Host<EntryPoint>()`). A test-composed host (`x.Host(name, compose)`, C17) is a
+  `WebApplication` built from `compose`, with no entry point for `WebApplicationFactory` to load,
+  so it cannot use the factory's Kestrel mode — and the library never binds Kestrel by hand.
+  `.OnSockets()` on a test-composed host fails the test as an arrangement failure in phase 2,
+  before any host starts, with a message naming the host and saying that a test-composed host has
+  no entry point for `WebApplicationFactory`'s Kestrel mode, so real sockets need a host declared
+  with `Host<EntryPoint>()`.
 - `.WithProtocols(...)` selects HTTP/1.1, HTTP/2 or both.
 - `host.Address` reports the actual bound address.
 - `host.CreateClient()` trusts exactly that certificate.
@@ -1539,7 +1611,7 @@ into the test project) and discovered the bound address by hand.
 ```csharp
 internal sealed class Fixture : ServiceFixture
 {
-	public TestHost Relay => Host("relay", Compose).OnSockets().WithProtocols(HttpProtocols.Http1AndHttp2);
+	public TestHost Relay => Host<Program>().OnSockets().WithProtocols(HttpProtocols.Http1AndHttp2);
 }
 ```
 
@@ -1551,6 +1623,7 @@ internal sealed class Fixture : ServiceFixture
 - `WhenWebSocketIsOpenedThenItConnectsToTheHost`
 - `WhenTwoSocketHostsRunInParallelThenPortsDiffer`
 - `WhenHostRunsOnSocketsThenItIsServedByTheFactorysKestrelMode`
+- `WhenComposedHostIsPutOnSocketsThenArrangementFailsExplainingWhy`
 
 ### Coverage
 
@@ -1735,7 +1808,7 @@ withdrawn and has no row.
 | C8 | Async and cancellation | | Partly | Partly | `FluentGwt` (+ `.Xunit` for the token) |
 | C10 | Teardown, fixture cancellation | usage | No | No | `FluentGwt` |
 | C11 | Test configuration | usage | No | Partly | `FluentGwt` |
-| C12 | Integration gating, hosted services | | No | Yes (defects) | `FluentGwt` (lifecycle) + `.Xunit` (gate) + `.AspNetCore` (host hosted services) |
+| C12 | Integration gating (build-time), hosted services | | No | Yes (defects) | `FluentGwt` (marker, lifecycle, removal) + `.Xunit` (build targets, gate) + `.AspNetCore` (removal replayed onto hosts) |
 | C13 | Theory and fixture-relative data | usage | No | No | `FluentGwt.Xunit` |
 | C14 | Seeded data, test identity | | No | No | `FluentGwt` (seed) + `.Bogus` |
 | C15 | Service overrides | usage | No | No | `FluentGwt` (+ `.Moq` for stubs) |
@@ -1745,7 +1818,7 @@ withdrawn and has no row.
 | C19 | Reaching into a host | usage | No | No | `FluentGwt.AspNetCore` |
 | C20 | Test authentication and authorisation | usage | No | No | `FluentGwt.AspNetCore` |
 | C21 | Host-to-host redirection | usage | No | No | `FluentGwt.AspNetCore` |
-| C22 | Real-socket hosting | usage | No | No | `FluentGwt.AspNetCore` |
+| C22 | Real-socket hosting (entry-point hosts) | usage | No | No | `FluentGwt.AspNetCore` |
 | C23 | Logs in test output, log assertions | usage | No | No | `FluentGwt.Xunit` (sink) + core (capture) |
 | C24 | Time control | | No | No | `FluentGwt` |
 | C25 | Analysers | | No | No | `FluentGwt.Analysers` |
@@ -1792,12 +1865,15 @@ All in the root namespace `FluentGwt` (extension classes included, so a test fil
 | `Time` | C24. |
 | `Logs` | C23. |
 | `IServiceCollection.Override<Service>(...)` (+ keyed) | C15. |
-| `Integration.IsEnabled` | C12. |
+| `[assembly: IntegrationEnabled]` (`IntegrationEnabledAttribute`) | The integration marker the xunit package's build targets emit (C12). |
+| `IntegrationEnabled` | Whether the assembly declaring the fixture's runtime type carries the marker (C12). |
+| `IServiceCollection.RemoveHostedService<Implementation>()`, `RemoveHostedService(Type)`, `RemoveApplicationHostedServices()` | Keep hosted services out of phase 4 or out of a host (C12). |
 | `public interface CancellationSource` | Abstraction the xunit package implements. |
 
 **Xunit package** — `[IntegrationFact(justification, reason)]`, `[IntegrationTheory(justification,
 reason)]`, `[Flags] enum IntegrationJustification` (`NetworkIO`, `DiskIO`, `UnsafeCode`,
-`MultipleThreads`, `ThreadSynchronisation`), `FixtureData<Fixture, Value>`,
+`MultipleThreads`, `ThreadSynchronisation`), the `buildTransitive` targets reading the MSBuild
+property `FluentGwtIntegration` and defining the `INTEGRATION` symbol, `FixtureData<Fixture, Value>`,
 `FixtureRow<Fixture, Value>`, the test-output log sink, test identity for `TestId`, and the
 automatic test-token `CancellationSource`.
 
@@ -1811,7 +1887,7 @@ automatic test-token `CancellationSource`.
 
 **AspNetCore package** — `ServiceFixture.Host<EntryPoint>()`, `Host(name, compose)` returning
 `TestHost`; on `TestHost`: `Services`, `Configure`, `Pipeline`, `Environment`,
-`KeepHostedService<Implementation>()`, `OnSockets()`, `WithProtocols(...)`, `Address`,
+`OnSockets()` (entry-point hosts only), `WithProtocols(...)`, `Address`,
 `CreateClient()`, `CreateWebSocket()`, `Scope(...)`, `Resolve<Service>()`, `Authentication()`
 returning `TestAuthentication` (`Principal`, `Issued`), `Authorisation` (`Decisions`); redirection
 builder `.To(host)`; givens `GivenAuthenticatedUser()`, `GivenAuthenticatedUser(scheme)`,
@@ -1845,10 +1921,11 @@ host where a fixture has more than one, and defaulting to the only host otherwis
 8. **The resolvable check built a second provider**, constructing singletons twice with their side
    effects. → Resolve from the real provider (C1).
 9. **One global lock** serialised resolution across every fixture in the process. → Per fixture.
-10. **The integration gate was decided in an attribute constructor**, cached for the process, and
-    barely used while an ungated suite required a real database. → Dynamic skip on an attribute
-    that must state its justification and reason (C12).
-11. **Shared static random generators** made "seeded" data order-dependent. → A seed per fixture,
+10. **The integration gate was decided in an attribute constructor**, cached for the process,
+    switched on by whatever settings file or environment variable was present, and barely used
+    while an ungated suite required a real database. → A build-time switch, read at run time per
+    test from an assembly marker, through dynamic skip on an attribute that must state its
+    justification and reason (C12).11. **Shared static random generators** made "seeded" data order-dependent. → A seed per fixture,
     fresh unless declared, reported on failure and replayable (C14).
 12. **A large generic-arity overload family** (acts with up to four deferred arguments, each in two
     shapes) existed for one consumer. → Dropped (C4).
@@ -1866,8 +1943,9 @@ host where a fixture has more than one, and defaulting to the only host otherwis
 |---|---|
 | **xunit v3 `TestContext.Current.CancellationToken`** | Replaces `CancellationToken.None` everywhere. The library supplies it to every step automatically (C8). The xUnit1051 analyser will flag every awaited call in consumer code that omits it; step lambdas that receive the token make compliance natural. |
 | **`IAsyncLifetime` returning `ValueTask`** | Available, but **not needed** by this design: the chain owns setup and teardown, and the fixture is `IAsyncDisposable`. xunit v3 also disposes a test class that implements `IAsyncDisposable`; the library does not require it, and a test class need implement nothing. `IAsyncLifetime` is the tool for a *class-shared* resource, which this library deliberately does not provide: one host per test (C17). |
-| **`WebApplicationFactory` vs a hand-rolled test host** | `WebApplicationFactory` gives in-memory hosting, `ConfigureTestServices`, `CreateClient` with redirect control, access to `Services`, and correct startup-failure propagation — replacing the hand-rolled host for entry-point hosts. For **test-composed** applications (which have no entry point), building a `WebApplication` with the test server (`UseTestServer`) is simpler than forcing a factory. For **real sockets**, the factory's .NET 10 Kestrel mode (`UseKestrel`) is used; the library never binds Kestrel by hand (C22). |
-| **Dynamic skip (`Assert.Skip`, `Assert.SkipUnless`, `Assert.SkipWhen`; `SkipUnless`/`SkipType` on fact attributes)** | Replaces a fact attribute that sets `Skip` in its constructor. The test is evaluated at run time and reported as skipped with a reason, per test, with no process-wide cache. The integration attributes are built on the native properties, with the caller-file/line constructor xUnit3003 requires (C12). xunit v3's **explicit tests** (`Explicit = true`) are an alternative gate worth knowing about, but they hide tests by default rather than skipping them visibly. |
+| **`WebApplicationFactory` vs a hand-rolled test host** | `WebApplicationFactory` gives in-memory hosting, `ConfigureTestServices`, `CreateClient` with redirect control, access to `Services`, and correct startup-failure propagation — replacing the hand-rolled host for entry-point hosts. For **test-composed** applications (which have no entry point), building a `WebApplication` with the test server (`UseTestServer`) is simpler than forcing a factory. For **real sockets**, the factory's .NET 10 Kestrel mode (`UseKestrel`) is used; the library never binds Kestrel by hand. That mode needs an entry point to load, so socket hosting is for entry-point hosts only, and a test-composed host cannot be put on sockets (C22). |
+| **Dynamic skip (`Assert.Skip`, `Assert.SkipUnless`, `Assert.SkipWhen`; `SkipUnless`/`SkipType` on fact attributes)** | Replaces a fact attribute that sets `Skip` in its constructor. The test is evaluated at run time and reported as skipped with a reason, per test, with no process-wide cache. The integration attributes are built on the native properties, with the caller-file/line constructor xUnit3003 requires, and decide from the build-time integration marker (C12). xunit v3's **explicit tests** (`Explicit = true`) are an alternative gate worth knowing about, but they hide tests by default rather than skipping them visibly. |
+| **NuGet `buildTransitive` MSBuild targets and the SDK's `AssemblyAttribute` item** | Replace a run-time configuration switch for integration. A package can ship targets that every consuming project imports, directly or transitively; one dedicated property (`FluentGwtIntegration`) then appends a compilation symbol to `DefineConstants` and emits an assembly-level marker through `AssemblyAttribute`, with no generated source of the library's own. Setting `DefineConstants` on the command line instead would replace the project's other constants (`DEBUG`, `TRACE`, the target-framework symbols) (C12). |
 | **`TimeProvider` / `FakeTimeProvider`** | Replaces wall-clock stamps in fixtures and the obsolete authentication clock. C24. |
 | **`Microsoft.Extensions.Http.Resilience`** | Standard resilience handlers add retries and timeouts: a stub returning 5xx triggers retries, slowing tests and changing call counts. Redirection must replace only the primary handler so resilience is still exercised (C16), and resilience delays become instant under `FakeTimeProvider`. Tests that are not about resilience may want it removed; that is a product-composition choice, not a library default. |
 | **Keyed services** | Overrides and resolution must be key-aware (C15), otherwise "remove all registrations of a type" destroys unrelated keyed registrations. |
@@ -1891,12 +1969,12 @@ extension methods in the root namespace, with `TryAdd` defaults.
 
 | Package | Holds | Depends on |
 |---|---|---|
-| `FluentGwt` | Chain (2023, extended), phases, `ServiceFixture`, container lock and validation, overrides, configuration, integration switch, hosted-service lifecycle, teardown, seed selection, `TestId`, `FakeTimeProvider` wiring, log capture, `CancellationSource` | `Microsoft.Extensions.DependencyInjection`, `.Configuration.*`, `.Hosting.Abstractions`, `.TimeProvider.Testing`, `.Diagnostics.Testing`, `AwesomeAssertions`, `FluentGwt.Analysers` |
-| `FluentGwt.Xunit` | Test token, `[IntegrationFact]`/`[IntegrationTheory]`, `IntegrationJustification`, `FixtureData`, test-output log sink, test identity for `TestId` | core, `xunit.v3.extensibility.core` |
+| `FluentGwt` | Chain (2023, extended), phases, `ServiceFixture`, container lock and validation, overrides, configuration, integration marker attribute and its reading, hosted-service lifecycle and removal helpers, teardown, seed selection, `TestId`, `FakeTimeProvider` wiring, log capture, `CancellationSource` | `Microsoft.Extensions.DependencyInjection`, `.Configuration.*`, `.Hosting.Abstractions`, `.TimeProvider.Testing`, `.Diagnostics.Testing`, `AwesomeAssertions`, `FluentGwt.Analysers` |
+| `FluentGwt.Xunit` | Test token, `buildTransitive` targets for `FluentGwtIntegration` (the `INTEGRATION` symbol and the marker), `[IntegrationFact]`/`[IntegrationTheory]`, `IntegrationJustification`, `FixtureData`, test-output log sink, test identity for `TestId` | core, `xunit.v3.extensibility.core` |
 | `FluentGwt.Bogus` | `Random`, `Fake` | core, `Bogus` |
 | `FluentGwt.Moq` | `Stub<Service>()` | core, `Moq` |
 | `FluentGwt.Http` | `RedirectHttp`, responders, request recording | core, `Microsoft.Extensions.Http` |
-| `FluentGwt.AspNetCore` | Test hosts, hosted-service removal, host overrides, scopes, stubbed authentication and authorisation records, host-to-host redirection, socket hosting | core, `.Http`, `Microsoft.AspNetCore.Mvc.Testing` (and `Microsoft.AspNetCore.App` framework reference) |
+| `FluentGwt.AspNetCore` | Test hosts, host overrides (including replaying hosted-service removals), scopes, stubbed authentication and authorisation records, host-to-host redirection, socket hosting for entry-point hosts | core, `.Http`, `Microsoft.AspNetCore.Mvc.Testing` (and `Microsoft.AspNetCore.App` framework reference) |
 | `FluentGwt.Analysers` | Roslyn analysers and code fixes `FG0001`–`FG0003`; no runtime code | `Microsoft.CodeAnalysis.CSharp.Workspaces` (analyser asset only) |
 
 ---
@@ -1914,31 +1992,34 @@ Dependency order only; no ranking beyond that.
 4. **C1** `ServiceFixture`, the container lock and validation; **C15** overrides.
 5. **C10** teardown and fixture cancellation (needs phase 7 and the fixture).
 6. **C3** deferral (phase 3).
-7. **C11** configuration, then **C12** switch and fixture-container hosted-service lifecycle
-   (phase 4).
+7. **C11** configuration, then **C12** in the core: the integration marker and its reading, the
+   fixture-container hosted-service lifecycle (phase 4), and the hosted-service removal helpers.
 8. **C14** seed selection, replay and `TestId`; **C24** time.
-9. **Xunit package** — test token, integration attributes with justification and reason, test
-   identity, **C13**, log sink (**C23**).
+9. **Xunit package** — test token, the `buildTransitive` targets for `FluentGwtIntegration`,
+   integration attributes with justification and reason, test identity, **C13**, log sink
+   (**C23**).
 10. **Bogus** and **Moq** packages.
 11. **Http package** — **C16**.
-12. **AspNetCore package** — **C17** (phase 2) with the hosted-service removal of C12, then
-    **C18**, **C19**, **C20**, **C21**, **C22**.
+12. **AspNetCore package** — **C17** (phase 2, hosts starting completely), then **C18** (with the
+    replay of C12's hosted-service removals), **C19**, **C20**, **C21**, **C22** (entry-point hosts
+    only).
 13. **Analysers package** — **C25** (needs the chain types and `TestHost` to analyse against).
 
 ---
 
 ## 33. Rulings, 2026-10-08
 
-The owner's rulings on the eighteen questions this section previously held. Each is folded into
-the sections it names.
+The owner's rulings on the twenty-one questions this section previously held. Each is folded into
+the sections it names. Where a later ruling supersedes an earlier one, the earlier row is kept for
+the record and marked; the sections follow the later ruling.
 
 | # | Question | Ruling |
 |---|---|---|
 | 1 | Private fixture vs extension steps | `internal sealed class Fixture`, exposed as `private Fixture Context { get; } = new();` — the library's convention, not a deviation (§1). |
 | 2 | Then's return type | The library's own awaitable chain type, implicitly convertible to `Task`; `.And` can follow a Then (C5, C7). |
 | 3 | Hosted-service start failure | Fails the test as an arrangement failure (C12). |
-| 4 | `EnableIntegration` parsing and gating | Attribute-only gating; the chain step is removed. Any non-empty value enables integration. The attribute's reason is the skip reason. Consumer-side `#if` wrapping is the intended pattern, needing no library support (C12). |
-| 5 | Hosted services in test hosts when integration is off | Removed by default — the application's own, by assembly rule, never the framework's — with a per-service opt-back-in (C12, C17). |
+| 4 | `EnableIntegration` parsing and gating | **Superseded in part by ruling 19.** Attribute-only gating; the chain step is removed. ~~Any non-empty value enables integration.~~ The attribute's reason is the skip reason. ~~Consumer-side `#if` wrapping is the intended pattern, needing no library support.~~ Attribute-only gating and the reason in the skip message stand (C12). |
+| 5 | Hosted services in test hosts when integration is off | **Superseded by ruling 21.** ~~Removed by default — the application's own, by assembly rule, never the framework's — with a per-service opt-back-in.~~ |
 | 6 | Tolerating a failing act | Dropped; C9 is withdrawn. |
 | 7 | Per-test vs class-shared hosts | One host per test; no class-shared host (C17). |
 | 8 | Real token issuance | Out of scope. Real providers (Entra ID and the like) are replaced by stub handlers under the same scheme names, exposing the principal, the scheme and the authorisation decisions (C20). |
@@ -1952,22 +2033,10 @@ the sections it names.
 | 16 | Integration justification | Revived: an `IntegrationJustification` flags enum alongside the reason, both in the skip message (C12). |
 | 17 | `TestId` uniqueness | Derived from the seed plus the test's identity: reproducible, and distinct between tests sharing a seed (C14). |
 | 18 | Socket hosting mechanism | `WebApplicationFactory`'s Kestrel mode (`UseKestrel`, .NET 10); never a hand-bound Kestrel (C22). |
+| 19 | `EnableIntegration=false`; how integration is switched on | **Supersedes ruling 4 in part.** Integration gating is compile-time; there is no run-time `EnableIntegration` switch, so the question of parsing `false` is moot. The xunit package's `buildTransitive` targets read the MSBuild property `FluentGwtIntegration`: set to `true`, they append `INTEGRATION` to `DefineConstants` and emit the assembly marker `[assembly: IntegrationEnabled]`. `[IntegrationFact]`/`[IntegrationTheory]` read the marker at run time — absent, skipped with the justification and reason; present, run — so consumers write the attribute once, with no `#if` per test. A dedicated property, because `-p:DefineConstants=...` replaces the project's other constants. Fixture-container hosted services start in phase 4 only when the marker is present (C11, C12). |
+| 20 | Socket hosting for test-composed hosts | `.OnSockets()` is available only for hosts built from a real entry point, through `WebApplicationFactory`'s Kestrel mode (ruling 18 stands). A test-composed host cannot be put on sockets: `.OnSockets()` on one is an arrangement failure explaining why (C17, C22). |
+| 21 | The boundary of hosted-service removal | **Supersedes ruling 5.** Test hosts start completely, the application's own hosted services included, regardless of integration; there is no assembly-based removal and no `KeepHostedService`. Arrangement helpers remove what a test does not want: `RemoveHostedService<Implementation>()` (and `RemoveHostedService(Type)`) by implementation type, and `RemoveApplicationHostedServices()`, which never removes the framework's. The application-opted framework service of the question is therefore kept by the convenience and removed by naming it (C12, C17). |
 
-### New open questions
+### Open questions
 
-Numbered on from the eighteen ruled questions, and referenced elsewhere as OQ19–OQ21.
-
-19. **`EnableIntegration=false`.** Ruling 4 keeps "any non-empty value enables integration". Read
-    literally, that includes the string `false`, so a settings file that says
-    `"EnableIntegration": "false"` turns integration *on*. C12 specifies the literal reading.
-    Confirm, or should `false` (case-insensitive) be the one non-empty value that means off?
-20. **Socket hosting for test-composed hosts.** Ruling 18 puts every socket host through
-    `WebApplicationFactory`'s Kestrel mode, but a test-composed host (C17) is a `WebApplication`
-    built from `compose(WebApplicationBuilder)`, with no entry point for a factory to load. Either
-    test-composed hosts are also built through a factory (overriding its host creation, which may
-    change the shape of `compose`), or `.OnSockets()` is available on entry-point hosts only. Which?
-21. **The boundary of hosted-service removal.** The assembly rule in C12 keeps every hosted service
-    implemented in a `Microsoft.AspNetCore`/`Microsoft.Extensions` assembly, including ones the
-    application opted into itself (a health-check publisher, say), and removes every third-party
-    library's (a message-bus client's, say). Is that the intended line, or should
-    application-opted framework services be removed too?
+None.

@@ -51,4 +51,8 @@ public static class GivenExtensions
 		given.AddTransition(transition);
 		return given;
 	}
+
+	public static Given<T> And<T>(this Given<T> given, Action<T> transition) => given.Given(transition);
+
+	public static Given<T> And<T>(this Given<T> given, Func<T, Task> transition) => given.Given(transition);
 }

@@ -21,6 +21,13 @@ public sealed class Then<Target>
 		return then.ToTask();
 	}
 
+	public Then<Target> And(Action<Target> assertion) => new(_when, _assertion.FollowedBy(Step.From(assertion)));
+
+	[OverloadResolutionPriority(1)]
+	public Then<Target> And(Func<Target, Task> assertion) => new(_when, _assertion.FollowedBy(Step.From(assertion)));
+
+	public Then<Target> And(Func<Target, ValueTask> assertion) => new(_when, _assertion.FollowedBy(Step.From(assertion)));
+
 	public Task ToTask() => _execution.Value;
 
 	public TaskAwaiter GetAwaiter() => ToTask().GetAwaiter();

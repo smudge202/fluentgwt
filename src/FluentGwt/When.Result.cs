@@ -13,44 +13,65 @@ public sealed class When<Target, Result>
 		_act = act;
 	}
 
-	public Then<Target, Result> Then(Action<Result> assertion)
-	{
-		ArgumentNullException.ThrowIfNull(assertion);
-		return Then((_, result) => assertion(result));
-	}
+	public When<Target, Result> And(Action<Target> step) => Preserving(Step.From(step));
 
-	public Then<Target, Result> Then(Action<Target, Result> assertion)
+	[OverloadResolutionPriority(1)]
+	public When<Target, Result> And(Func<Target, Task> step) => Preserving(Step.From(step));
+
+	public When<Target, Result> And(Func<Target, ValueTask> step) => Preserving(Step.From(step));
+
+	public When<Target, Next> AndResult<Next>(Func<Target, Next> act)
 	{
-		ArgumentNullException.ThrowIfNull(assertion);
-		return new(this, (target, result) =>
-		{
-			assertion(target, result);
-			return ValueTask.CompletedTask;
-		});
+		ArgumentNullException.ThrowIfNull(act);
+		return Replacing(x => ValueTask.FromResult(act(x)));
 	}
 
 	[OverloadResolutionPriority(1)]
-	public Then<Target, Result> Then(Func<Result, Task> assertion)
+	public When<Target, Next> AndResult<Next>(Func<Target, Task<Next>> act)
 	{
-		ArgumentNullException.ThrowIfNull(assertion);
-		return new(this, (_, result) => new ValueTask(assertion(result)));
+		ArgumentNullException.ThrowIfNull(act);
+		return Replacing(x => new ValueTask<Next>(act(x)));
 	}
 
-	public Then<Target, Result> Then(Func<Result, ValueTask> assertion)
+	public When<Target, Next> AndResult<Next>(Func<Target, ValueTask<Next>> act)
 	{
-		ArgumentNullException.ThrowIfNull(assertion);
-		return new(this, (_, result) => assertion(result));
+		ArgumentNullException.ThrowIfNull(act);
+		return Replacing(act);
 	}
 
-	public Then<Target, Result> ThenFixture(Action<Target> assertion)
-	{
-		ArgumentNullException.ThrowIfNull(assertion);
-		return Then((target, _) => assertion(target));
-	}
+	public Then<Target, Result> Then(Action<Result> assertion) =>
+		new(this, Step.OnResult<Target, Result>(Step.From(assertion)));
+
+	[OverloadResolutionPriority(1)]
+	public Then<Target, Result> Then(Func<Result, Task> assertion) =>
+		new(this, Step.OnResult<Target, Result>(Step.From(assertion)));
+
+	public Then<Target, Result> Then(Func<Result, ValueTask> assertion) =>
+		new(this, Step.OnResult<Target, Result>(Step.From(assertion)));
+
+	public Then<Target, Result> Then(Action<Target, Result> assertion) => new(this, Step.From(assertion));
+
+	public Then<Target, Result> ThenFixture(Action<Target> assertion) =>
+		new(this, Step.OnTarget<Target, Result>(Step.From(assertion)));
 
 	internal async Task<(Target Target, Result Result)> Act()
 	{
 		var target = await _given.Arrange();
 		return (target, await _act(target));
 	}
+
+	private When<Target, Result> Preserving(Func<Target, ValueTask> step) =>
+		new(_given, async x =>
+		{
+			var result = await _act(x);
+			await step(x);
+			return result;
+		});
+
+	private When<Target, Next> Replacing<Next>(Func<Target, ValueTask<Next>> act) =>
+		new(_given, async x =>
+		{
+			await _act(x);
+			return await act(x);
+		});
 }

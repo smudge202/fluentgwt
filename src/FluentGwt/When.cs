@@ -9,29 +9,23 @@ public sealed class When<Target>
 
 	internal When(State<Target> given, Func<Target, ValueTask> act)
 	{
-		ArgumentNullException.ThrowIfNull(act);
 		_given = given;
 		_act = act;
 	}
 
-	public Then<Target> Then(Action<Target> assertion)
-	{
-		ArgumentNullException.ThrowIfNull(assertion);
-		return new(this, x =>
-		{
-			assertion(x);
-			return ValueTask.CompletedTask;
-		});
-	}
+	public When<Target> And(Action<Target> step) => new(_given, _act.FollowedBy(Step.From(step)));
 
 	[OverloadResolutionPriority(1)]
-	public Then<Target> Then(Func<Target, Task> assertion)
-	{
-		ArgumentNullException.ThrowIfNull(assertion);
-		return new(this, x => new ValueTask(assertion(x)));
-	}
+	public When<Target> And(Func<Target, Task> step) => new(_given, _act.FollowedBy(Step.From(step)));
 
-	public Then<Target> Then(Func<Target, ValueTask> assertion) => new(this, assertion);
+	public When<Target> And(Func<Target, ValueTask> step) => new(_given, _act.FollowedBy(Step.From(step)));
+
+	public Then<Target> Then(Action<Target> assertion) => new(this, Step.From(assertion));
+
+	[OverloadResolutionPriority(1)]
+	public Then<Target> Then(Func<Target, Task> assertion) => new(this, Step.From(assertion));
+
+	public Then<Target> Then(Func<Target, ValueTask> assertion) => new(this, Step.From(assertion));
 
 	internal async Task<Target> Act()
 	{

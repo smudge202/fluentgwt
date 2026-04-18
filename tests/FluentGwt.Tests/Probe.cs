@@ -5,8 +5,12 @@ internal sealed class Probe
 	public int Acts { get; private set; }
 	public object Result { get; } = new();
 	public Exception Failure { get; } = new InvalidOperationException("Probe failure");
+	public List<string> Events { get; } = [];
+	public string Log => string.Join(',', Events);
 
 	public void Act() => Acts++;
+
+	public void Record(string step) => Events.Add(step);
 
 	public object Answer()
 	{

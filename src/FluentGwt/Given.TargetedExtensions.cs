@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace FluentGwt;
 
 public static class GivenExtensions
@@ -26,8 +28,15 @@ public static class GivenExtensions
 	public static Given<T> Given<T>(this T target, Action<T> transition) =>
 		new(target, transition.AsCompletedTask());
 
+	[OverloadResolutionPriority(1)]
 	public static Given<T> Given<T>(this T target, Func<T, Task> transition) =>
 		new(target, transition);
+
+	public static Given<T> Given<T>(this T target, Func<T, ValueTask> transition)
+	{
+		ArgumentNullException.ThrowIfNull(transition);
+		return new(target, x => transition(x).AsTask());
+	}
 
 	public static GivenBase<TTarget> Given<TTarget, TState>(this GivenBase<TTarget> given, TState state) =>
 		given.Given(StateHolder.DefaultKey, state);
@@ -45,6 +54,7 @@ public static class GivenExtensions
 	public static Given<T> Given<T>(this Given<T> given, Action<T> transition) =>
 		given.Given(transition.AsCompletedTask());
 
+	[OverloadResolutionPriority(1)]
 	public static Given<T> Given<T>(this Given<T> given, Func<T, Task> transition)
 	{
 		ArgumentNullException.ThrowIfNull(given);
@@ -52,7 +62,16 @@ public static class GivenExtensions
 		return given;
 	}
 
+	public static Given<T> Given<T>(this Given<T> given, Func<T, ValueTask> transition)
+	{
+		ArgumentNullException.ThrowIfNull(transition);
+		return given.Given(x => transition(x).AsTask());
+	}
+
 	public static Given<T> And<T>(this Given<T> given, Action<T> transition) => given.Given(transition);
 
+	[OverloadResolutionPriority(1)]
 	public static Given<T> And<T>(this Given<T> given, Func<T, Task> transition) => given.Given(transition);
+
+	public static Given<T> And<T>(this Given<T> given, Func<T, ValueTask> transition) => given.Given(transition);
 }

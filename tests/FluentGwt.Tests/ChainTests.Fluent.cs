@@ -40,6 +40,19 @@ internal static class ChainTestsFluent
 			}
 		});
 
+	public static When<Fixture> WhenExecutingTheChainCapturingCancellation(this Given<Fixture> given)
+		=> given.When(async x =>
+		{
+			try
+			{
+				await x.Chain();
+			}
+			catch (OperationCanceledException cancellation)
+			{
+				x.Cancellation = cancellation;
+			}
+		});
+
 	public static When<Fixture> WhenBuildingTheChainWithoutAwaitingIt(this Given<Fixture> given)
 		=> given.When(x => { x.Unawaited(); });
 }

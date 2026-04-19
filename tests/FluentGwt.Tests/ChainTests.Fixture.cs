@@ -11,6 +11,7 @@ public sealed partial class ChainTests
 		public Func<object> Unawaited { get; set; } = () => new();
 		public Func<Then<Probe>>? Awaitable { get; set; }
 		public Exception? Failure { get; set; }
+		public OperationCanceledException? Cancellation { get; set; }
 		public object? Asserted { get; set; }
 	}
 }

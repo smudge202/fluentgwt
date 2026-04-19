@@ -5,6 +5,7 @@ internal sealed class Probe
 	public int Acts { get; private set; }
 	public object Result { get; } = new();
 	public Exception Failure { get; } = new InvalidOperationException("Probe failure");
+	public OperationCanceledException Cancellation { get; } = new();
 	public List<string> Events { get; } = [];
 	public string Log => string.Join(',', Events);
 
@@ -37,4 +38,6 @@ internal sealed class Probe
 	}
 
 	public void Fail() => throw Failure;
+
+	public void Cancel() => throw Cancellation;
 }

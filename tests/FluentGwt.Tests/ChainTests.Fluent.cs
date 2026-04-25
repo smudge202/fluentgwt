@@ -30,14 +30,9 @@ internal static class ChainTestsFluent
 	public static When<Fixture> WhenExecutingTheChainCapturingFailure(this Given<Fixture> given)
 		=> given.When(async x =>
 		{
-			try
-			{
-				await x.Chain();
-			}
-			catch (InvalidOperationException failure)
-			{
-				x.Failure = failure;
-			}
+			var execution = x.Chain();
+			await execution.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+			x.Failure = execution.Exception?.InnerException;
 		});
 
 	public static When<Fixture> WhenExecutingTheChainCapturingCancellation(this Given<Fixture> given)

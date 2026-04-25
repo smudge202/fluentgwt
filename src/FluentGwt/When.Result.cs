@@ -54,11 +54,37 @@ public sealed class When<Target, Result>
 	public Then<Target, Result> ThenFixture(Action<Target> assertion) =>
 		new(this, Step.OnTarget<Target, Result>(Step.From(assertion)));
 
+	public ThenThrows<Target, Failure> ThenThrows<Failure>() where Failure : Exception =>
+		new(Expect.Act<Target, Failure>(_given.Arrange, Discarding, exactly: false), Expect.Nothing<Target, Failure>());
+
+	public ThenThrows<Target, Failure> ThenThrows<Failure>(Action<Failure> assertion) where Failure : Exception =>
+		new(Expect.Act<Target, Failure>(_given.Arrange, Discarding, exactly: false), Step.OnResult<Target, Failure>(Step.From(assertion)));
+
+	public ThenThrows<Target, Failure> ThenThrows<Failure>(Action<Target, Failure> assertion) where Failure : Exception =>
+		new(Expect.Act<Target, Failure>(_given.Arrange, Discarding, exactly: false), Step.From(assertion));
+
+	public ThenThrows<Target, Failure> ThenThrowsExactly<Failure>() where Failure : Exception =>
+		new(Expect.Act<Target, Failure>(_given.Arrange, Discarding, exactly: true), Expect.Nothing<Target, Failure>());
+
+	public ThenThrows<Target, Failure> ThenThrowsExactly<Failure>(Action<Failure> assertion) where Failure : Exception =>
+		new(Expect.Act<Target, Failure>(_given.Arrange, Discarding, exactly: true), Step.OnResult<Target, Failure>(Step.From(assertion)));
+
+	public ThenThrows<Target, Failure> ThenThrowsExactly<Failure>(Action<Target, Failure> assertion) where Failure : Exception =>
+		new(Expect.Act<Target, Failure>(_given.Arrange, Discarding, exactly: true), Step.From(assertion));
+
+	public ThenThrows<Target, Failure> ThenArrangementFails<Failure>() where Failure : Exception =>
+		new(Expect.Arrangement<Target, Failure>(_given), Expect.Nothing<Target, Failure>());
+
+	public ThenThrows<Target, Failure> ThenArrangementFails<Failure>(Action<Failure> assertion) where Failure : Exception =>
+		new(Expect.Arrangement<Target, Failure>(_given), Step.OnResult<Target, Failure>(Step.From(assertion)));
+
 	internal async Task<(Target Target, Result Result)> Act()
 	{
 		var target = await _given.Arrange();
 		return (target, await _act(target));
 	}
+
+	private async ValueTask Discarding(Target target) => await _act(target);
 
 	private When<Target, Result> Preserving(Func<Target, ValueTask> step) =>
 		new(_given, async x =>

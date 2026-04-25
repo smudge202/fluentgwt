@@ -39,5 +39,7 @@ internal sealed class Probe
 
 	public void Fail() => throw Failure;
 
+	public object AnswerOrFail() => Acts < 0 ? Result : throw Failure;
+
 	public void Cancel() => throw Cancellation;
 }

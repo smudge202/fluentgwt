@@ -524,8 +524,9 @@ with well over a hundred exception-expecting facts, and others asserting on exce
   `ThenThrowsExactly<Failure>()` requires the exact type.
 - Both accept an optional assertion on the exception, and on fixture and exception.
 - If the act does not throw, the test fails with a message naming the expected type.
-- If the act throws an unrelated type, the test fails, carrying the actual exception as the inner
-  exception.
+- If the act throws an unrelated type, the test fails, and the failure's message carries the actual
+  exception in full — its type, message and stack. (AwesomeAssertions raises its own failure type
+  and cannot attach an inner exception, so the message is the carrier.)
 - These failures are raised through AwesomeAssertions, so their messages read like every other
   assertion failure in the suite (expected type, actual type, the actual exception's message).
 - **Only the act is covered.** An exception from a given fails the test as an arrangement failure

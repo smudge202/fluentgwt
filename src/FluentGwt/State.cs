@@ -14,6 +14,8 @@ public abstract record State<T> : StateHolder
 	internal void AddTransition(Func<T, Task> state) =>
 		Transitions.Enqueue(state);
 
+	internal T Subject => Target();
+
 	internal async Task Execute() => await Arrange();
 
 	internal async Task<T> Arrange()

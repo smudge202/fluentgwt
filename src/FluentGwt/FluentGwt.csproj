@@ -4,6 +4,10 @@
 		<AssemblyName>FluentGwt</AssemblyName>
 		<RootNamespace>FluentGwt</RootNamespace>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AwesomeAssertions" Version="9.6.0" />
+	</ItemGroup>
 	
 	<ItemGroup>
 		<Compile Update="Given.Base.cs">

@@ -8,7 +8,6 @@
 
 	<ItemGroup>
 		<PackageReference Include="AwesomeAssertions" Version="9.6.0" />
-		<PackageReference Include="Bogus" Version="35.6.5" />
 		<PackageReference Include="xunit.v3" Version="4.0.1" />
 	</ItemGroup>
 
@@ -17,11 +16,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Compile Update="GivenTests.Targeted.cs">
+		<Compile Update="GivenTests.*.cs">
 			<DependentUpon>GivenTests.cs</DependentUpon>
 		</Compile>
-		<Compile Update="GivenTests.Untargeted.cs">
-			<DependentUpon>GivenTests.cs</DependentUpon>
+		<Compile Update="ChainTests.*.cs">
+			<DependentUpon>ChainTests.cs</DependentUpon>
 		</Compile>
 	</ItemGroup>
 

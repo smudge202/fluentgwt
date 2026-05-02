@@ -3,180 +3,173 @@ using Xunit;
 
 namespace FluentGwt.Tests;
 
-public partial class GivenTests
+public sealed partial class GivenTests
 {
 	[Fact]
-	public void UntargetedGivenCanInstantiateBlank() =>
-		new Given().Should().NotBeNull();
+	public Task WhenBlankUntargetedChainIsCreatedThenItExists()
+		=> Context
+			.Given()
+			.When(_ => new Given())
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public void UntargetedGivenCanInstantiateWithState() =>
-		Given.With(this);
+	public Task WhenUntargetedChainStartsWithStateThenAChainIsReturned()
+		=> Context
+			.Given()
+			.When(x => Given.With(x.State))
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public void UntargetedGivenCanInstantiateWithNamedState() =>
-		Given.With(Random.String2(10), this);
+	public Task WhenUntargetedChainStartsWithNamedStateThenAChainIsReturned()
+		=> Context
+			.Given()
+			.When(x => Given.With(x.Name, x.State))
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public void UntargetedGivenCanInstantiateWithKeyedState() =>
-		Given.With(new object(), this);
-
-
-	[Fact]
-	public void UntargetedGivenCanInstantiateWithTransition() =>
-		Given.With(() => _foo = new Foo());
+	public Task WhenUntargetedChainStartsWithKeyedStateThenAChainIsReturned()
+		=> Context
+			.Given()
+			.When(x => Given.With(x.Key, x.State))
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public void UntargetedGivenCanInstantiateWithAsyncTransition() =>
-		Given.With(async () => _foo = await AsyncFoo());
+	public Task WhenUntargetedChainStartsWithATransitionThenAChainIsReturned()
+		=> Context
+			.Given()
+			.When(x => Given.With(() => x.Subject.Part = x.First))
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public void UntargetedGivenCanReturnState() =>
-		Given.With(this)
-			.Get<GivenTests>()
-			.Should().Be(this);
+	public Task WhenUntargetedChainStartsWithAnAsyncTransitionThenAChainIsReturned()
+		=> Context
+			.Given()
+			.When(x => Given.With(async () => x.Subject.Part = await Subject.NewPartLater()))
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public void UntargetedGivenCanUpdateState()
-	{
-		var first = new Foo();
-		var second = new Foo();
-
-		Given.With(first)
-			.Given(second)
-			.Get<Foo>()
-			.Should().Be(second);
-	}
+	public Task WhenUntargetedChainIsGivenStateThenItCanBeRead()
+		=> Context
+			.Given()
+			.When(x => Given.With(x.Subject).Get<Subject>())
+			.Then((x, state) => state.Should().BeSameAs(x.Subject));
 
 	[Fact]
-	public void UntargetedGivenThrowsWhenNameIsNull()
-	{
-		string? name = null;
-
-		Action act = () => Given.With(name!, this);
-
-		act.Should().Throw<ArgumentNullException>();
-	}
+	public Task WhenUntargetedChainIsGivenStateAgainThenItIsReplaced()
+		=> Context
+			.Given()
+			.When(x => Given.With(x.First).Given(x.Second).Get<Part>())
+			.Then((x, state) => state.Should().BeSameAs(x.Second));
 
 	[Fact]
-	public void UntargetedGivenCanReturnNamedState()
-	{
-		var name = Random.String2(10);
-
-		Given.With(name, this)
-			.Get<GivenTests>(name)
-			.Should().Be(this);
-	}
+	public Task WhenUntargetedChainIsGivenANullNameThenArgumentNullIsThrown()
+		=> Context
+			.Given()
+			.When(x => Given.With((string)null!, x.State))
+			.ThenThrows<ArgumentNullException>();
 
 	[Fact]
-	public void UntargetedGivenCanUpdateNamedState()
-	{
-		var name = Random.String2(10);
-		var first = new Foo();
-		var second = new Foo();
-
-		Given.With(name, first)
-			.Given(name, second)
-			.Get<Foo>(name)
-			.Should().Be(second);
-	}
+	public Task WhenUntargetedChainIsGivenNamedStateThenItCanBeReadByName()
+		=> Context
+			.Given()
+			.When(x => Given.With(x.Name, x.Subject).Get<Subject>(x.Name))
+			.Then((x, state) => state.Should().BeSameAs(x.Subject));
 
 	[Fact]
-	public void UntargetedGivenThrowsWhenKeyIsNull()
-	{
-		object? key = null;
-
-		Action act = () => Given.With(key!, this);
-
-		act.Should().Throw<ArgumentNullException>();
-	}
+	public Task WhenUntargetedChainIsGivenNamedStateAgainThenItIsReplaced()
+		=> Context
+			.Given()
+			.When(x => Given.With(x.Name, x.First).Given(x.Name, x.Second).Get<Part>(x.Name))
+			.Then((x, state) => state.Should().BeSameAs(x.Second));
 
 	[Fact]
-	public void UntargetedGivenCanReturnKeyedState()
-	{
-		var key = new object();
-
-		Given.With(key, this)
-			.Get<GivenTests>(key)
-			.Should().Be(this);
-	}
+	public Task WhenUntargetedChainIsGivenANullKeyThenArgumentNullIsThrown()
+		=> Context
+			.Given()
+			.When(x => Given.With((object)null!, x.State))
+			.ThenThrows<ArgumentNullException>();
 
 	[Fact]
-	public void UntargetedGivenCanUpdateKeyedState()
-	{
-		var key = new object();
-		var first = new Foo();
-		var second = new Foo();
-
-		Given.With(key, first)
-			.Given(key, second)
-			.Get<Foo>(key)
-			.Should().Be(second);
-	}
+	public Task WhenUntargetedChainIsGivenKeyedStateThenItCanBeReadByKey()
+		=> Context
+			.Given()
+			.When(x => Given.With(x.Key, x.Subject).Get<Subject>(x.Key))
+			.Then((x, state) => state.Should().BeSameAs(x.Subject));
 
 	[Fact]
-	public async Task UntargetedGivenCanExecute() =>
-		await new Given().Execute();
+	public Task WhenUntargetedChainIsGivenKeyedStateAgainThenItIsReplaced()
+		=> Context
+			.Given()
+			.When(x => Given.With(x.Key, x.First).Given(x.Key, x.Second).Get<Part>(x.Key))
+			.Then((x, state) => state.Should().BeSameAs(x.Second));
 
 	[Fact]
-	public void UntargetedGivenCanDeferTransition()
-	{
-		Given.With(() => _foo = new Foo());
-		_foo.Should().BeNull();
-	}
+	public Task WhenBlankUntargetedChainExecutesThenItCompletes()
+		=> Context
+			.Given()
+			.WhenExecuting(_ => new Given())
+			.Then(x => x.Subject.Part.Should().BeNull());
 
 	[Fact]
-	public void UntargetedGivenCanDeferAsyncTransition()
-	{
-		Given.With(async () => _foo = await AsyncFoo());
-		_foo.Should().BeNull();
-	}
+	public Task WhenUntargetedChainIsGivenATransitionThenItDoesNotRunUntilExecution()
+		=> Context
+			.Given()
+			.When(x => Given.With(() => x.Subject.Part = x.First))
+			.ThenFixture(x => x.Subject.Part.Should().BeNull());
 
 	[Fact]
-	public async Task UntargetedGivenWithTransitionCanExecute()
-	{
-		var given = Given.With(() => _foo = new Foo());
-		await given.Execute();
-		_foo.Should().NotBeNull();
-	}
+	public Task WhenUntargetedChainIsGivenAnAsyncTransitionThenItDoesNotRunUntilExecution()
+		=> Context
+			.Given()
+			.When(x => Given.With(async () => x.Subject.Part = await Subject.NewPartLater()))
+			.ThenFixture(x => x.Subject.Part.Should().BeNull());
 
 	[Fact]
-	public void UntargetedGivenWithTransitionCanBeExtended() =>
-		Given.With(() => _foo = new Foo())
-			.Given(() => _foo!.Bar = Random.Int());
+	public Task WhenUntargetedChainExecutesThenItsTransitionRuns()
+		=> Context
+			.Given()
+			.WhenExecuting(x => Given.With(() => x.Subject.Part = x.First))
+			.Then(x => x.Subject.Part.Should().BeSameAs(x.First));
 
 	[Fact]
-	public void UntargetedGivenWithAsyncTransitionCanBeExtended() =>
-		Given.With(async () => _foo = await AsyncFoo())
-			.Given(() => _foo!.Bar = Random.Int());
+	public Task WhenUntargetedTransitionIsExtendedThenAChainIsReturned()
+		=> Context
+			.Given()
+			.When(x => Given.With(() => x.Subject.Part = x.First).Given(() => x.Subject.Part!.Value = x.Value))
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public void UntargetedGivenWithTransitionCanBeAsyncExtended() =>
-		Given.With(() => _foo = new Foo())
-			.Given(async () => _foo!.Bar = await Task.FromResult(Random.Int()));
+	public Task WhenUntargetedAsyncTransitionIsExtendedThenAChainIsReturned()
+		=> Context
+			.Given()
+			.When(x => Given.With(async () => x.Subject.Part = await Subject.NewPartLater()).Given(() => x.Subject.Part!.Value = x.Value))
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public void UntargetedGivenWithAsyncTransitionCanBeAsyncExtended() =>
-		Given.With(async () => _foo = await AsyncFoo())
-			.Given(async () => _foo!.Bar = await Task.FromResult(Random.Int()));
+	public Task WhenUntargetedTransitionIsExtendedAsynchronouslyThenAChainIsReturned()
+		=> Context
+			.Given()
+			.When(x => Given.With(() => x.Subject.Part = x.First).Given(async () => x.Subject.Part!.Value = await Subject.ValueLater(x.Value)))
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public async Task UntargetedGivenWithExtendedTransitionCanExecute()
-	{
-		var bar = Random.Int();
-		await Given.With(() => _foo = new Foo())
-			.Given(() => _foo!.Bar = bar)
-			.Execute();
-		_foo!.Bar.Should().Be(bar);
-	}
+	public Task WhenUntargetedAsyncTransitionIsExtendedAsynchronouslyThenAChainIsReturned()
+		=> Context
+			.Given()
+			.When(x => Given.With(async () => x.Subject.Part = await Subject.NewPartLater()).Given(async () => x.Subject.Part!.Value = await Subject.ValueLater(x.Value)))
+			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
-	public async Task UntargetedGivenWithExtendedAsyncTransitionCanExecute()
-	{
-		var bar = Random.Int();
-		await Given.With(async () => _foo = await AsyncFoo())
-			.Given(async () => _foo!.Bar = await Task.FromResult(bar))
-			.Execute();
-		_foo!.Bar.Should().Be(bar);
-	}
+	public Task WhenExtendedUntargetedChainExecutesThenTransitionsRunInOrder()
+		=> Context
+			.Given()
+			.WhenExecuting(x => Given.With(() => x.Subject.Part = x.First).Given(() => x.Subject.Part!.Value = x.Value))
+			.Then(x => x.Subject.Part!.Value.Should().Be(x.Value));
+
+	[Fact]
+	public Task WhenExtendedAsyncUntargetedChainExecutesThenTransitionsRunInOrder()
+		=> Context
+			.Given()
+			.WhenExecuting(x => Given.With(async () => x.Subject.Part = await Subject.NewPartLater()).Given(async () => x.Subject.Part!.Value = await Subject.ValueLater(x.Value)))
+			.Then(x => x.Subject.Part!.Value.Should().Be(x.Value));
 }

@@ -51,6 +51,24 @@ public static class GivenExtensions
 		return given;
 	}
 
+	public static Given<T> Given<T, TState>(this Given<T> given, TState state)
+	{
+		if (typeof(T) == typeof(TState))
+			throw new InvalidOperationException(
+				$"The target of the Given cannot be replaced by adding another default {typeof(T)} - consider using a named or keyed instance");
+		return given.Given(StateHolder.DefaultKey, state);
+	}
+
+	public static Given<T> Given<T, TState>(this Given<T> given, string name, TState state) =>
+		given.Given((object)name, state);
+
+	public static Given<T> Given<T, TState>(this Given<T> given, object key, TState state)
+	{
+		ArgumentNullException.ThrowIfNull(given);
+		given.AddState(key, () => state);
+		return given;
+	}
+
 	public static Given<T> Given<T>(this Given<T> given, Action<T> transition) =>
 		given.Given(transition.AsCompletedTask());
 

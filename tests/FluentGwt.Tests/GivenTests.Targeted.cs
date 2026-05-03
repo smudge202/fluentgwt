@@ -167,6 +167,20 @@ public sealed partial class GivenTests
 			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
+	public Task WhenTargetIsGivenStateAfterATransitionThenTheTransitionStillRuns()
+		=> Context
+			.Given()
+			.WhenExecuting(x => x.Subject.Given(s => s.Part = x.First).Given(x.State))
+			.Then(x => x.Subject.Part.Should().BeSameAs(x.First));
+
+	[Fact]
+	public Task WhenTargetIsGivenStateAfterATransitionThenTheChainKeepsItsTarget()
+		=> Context
+			.Given()
+			.When(x => x.Subject.Given(s => s.Part = x.First).Given(x.Name, x.State).Get<Subject>())
+			.Then((x, target) => target.Should().BeSameAs(x.Subject));
+
+	[Fact]
 	public Task WhenExtendedTargetedChainExecutesThenTransitionsRunInOrder()
 		=> Context
 			.Given()

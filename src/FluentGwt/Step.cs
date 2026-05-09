@@ -2,7 +2,7 @@ namespace FluentGwt;
 
 internal static class Step
 {
-	public static Func<T, ValueTask> From<T>(Action<T> step)
+	public static Func<Target, ValueTask> From<Target>(Action<Target> step)
 	{
 		ArgumentNullException.ThrowIfNull(step);
 		return x =>
@@ -12,19 +12,19 @@ internal static class Step
 		};
 	}
 
-	public static Func<T, ValueTask> From<T>(Func<T, Task> step)
+	public static Func<Target, ValueTask> From<Target>(Func<Target, Task> step)
 	{
 		ArgumentNullException.ThrowIfNull(step);
 		return x => new ValueTask(step(x));
 	}
 
-	public static Func<T, ValueTask> From<T>(Func<T, ValueTask> step)
+	public static Func<Target, ValueTask> From<Target>(Func<Target, ValueTask> step)
 	{
 		ArgumentNullException.ThrowIfNull(step);
 		return step;
 	}
 
-	public static Func<T, Result, ValueTask> From<T, Result>(Action<T, Result> step)
+	public static Func<Target, Result, ValueTask> From<Target, Result>(Action<Target, Result> step)
 	{
 		ArgumentNullException.ThrowIfNull(step);
 		return (x, result) =>
@@ -34,18 +34,18 @@ internal static class Step
 		};
 	}
 
-	public static Func<T, Result, ValueTask> OnResult<T, Result>(Func<Result, ValueTask> step) => (_, result) => step(result);
+	public static Func<Target, Result, ValueTask> OnResult<Target, Result>(Func<Result, ValueTask> step) => (_, result) => step(result);
 
-	public static Func<T, Result, ValueTask> OnTarget<T, Result>(Func<T, ValueTask> step) => (x, _) => step(x);
+	public static Func<Target, Result, ValueTask> OnTarget<Target, Result>(Func<Target, ValueTask> step) => (x, _) => step(x);
 
-	public static Func<T, ValueTask> FollowedBy<T>(this Func<T, ValueTask> first, Func<T, ValueTask> next) =>
+	public static Func<Target, ValueTask> FollowedBy<Target>(this Func<Target, ValueTask> first, Func<Target, ValueTask> next) =>
 		async x =>
 		{
 			await first(x);
 			await next(x);
 		};
 
-	public static Func<T, Result, ValueTask> FollowedBy<T, Result>(this Func<T, Result, ValueTask> first, Func<T, Result, ValueTask> next) =>
+	public static Func<Target, Result, ValueTask> FollowedBy<Target, Result>(this Func<Target, Result, ValueTask> first, Func<Target, Result, ValueTask> next) =>
 		async (x, result) =>
 		{
 			await first(x, result);

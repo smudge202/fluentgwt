@@ -2,25 +2,23 @@ using System.Collections.Concurrent;
 
 namespace FluentGwt;
 
-public abstract record State<T> : StateHolder
+public abstract record State<Target> : StateHolder
 {
-	protected abstract Func<T> Target { get; }
-	private ConcurrentQueue<Func<T, Task>> Transitions =>
-		GetState<ConcurrentQueue<Func<T, Task>>>(this);
+	protected abstract Func<Target> Subject { get; }
+	private ConcurrentQueue<Func<Target, Task>> Transitions =>
+		GetState<ConcurrentQueue<Func<Target, Task>>>(this);
 
 	protected State() =>
-		AddState(this, () => new ConcurrentQueue<Func<T, Task>>());
+		AddState(this, () => new ConcurrentQueue<Func<Target, Task>>());
 
-	internal void AddTransition(Func<T, Task> state) =>
+	internal void AddTransition(Func<Target, Task> state) =>
 		Transitions.Enqueue(state);
 
-	internal T Subject => Target();
+	internal Target Current => Subject();
 
-	internal async Task Execute() => await Arrange();
-
-	internal async Task<T> Arrange()
+	internal async Task<Target> Arrange()
 	{
-		var target = Target();
+		var target = Subject();
 		while (Transitions.TryDequeue(out var state))
 			await state(target);
 		return target;

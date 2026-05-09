@@ -2,29 +2,29 @@ using System.Runtime.CompilerServices;
 
 namespace FluentGwt;
 
-public abstract record GivenBase<T> : State<T>
+public abstract record GivenBase<Target> : State<Target>
 {
-	public When<T> When(Action<T> act) => new(this, Step.From(act));
+	public When<Target> When(Action<Target> act) => new(this, Step.From(act));
 
 	[OverloadResolutionPriority(1)]
-	public When<T> When(Func<T, Task> act) => new(this, Step.From(act));
+	public When<Target> When(Func<Target, Task> act) => new(this, Step.From(act));
 
-	public When<T> When(Func<T, ValueTask> act) => new(this, Step.From(act));
+	public When<Target> When(Func<Target, ValueTask> act) => new(this, Step.From(act));
 
-	public When<T, Result> When<Result>(Func<T, Result> act)
+	public When<Target, Result> When<Result>(Func<Target, Result> act)
 	{
 		ArgumentNullException.ThrowIfNull(act);
 		return new(this, x => ValueTask.FromResult(act(x)));
 	}
 
 	[OverloadResolutionPriority(1)]
-	public When<T, Result> When<Result>(Func<T, Task<Result>> act)
+	public When<Target, Result> When<Result>(Func<Target, Task<Result>> act)
 	{
 		ArgumentNullException.ThrowIfNull(act);
 		return new(this, x => new ValueTask<Result>(act(x)));
 	}
 
-	public When<T, Result> When<Result>(Func<T, ValueTask<Result>> act)
+	public When<Target, Result> When<Result>(Func<Target, ValueTask<Result>> act)
 	{
 		ArgumentNullException.ThrowIfNull(act);
 		return new(this, act);

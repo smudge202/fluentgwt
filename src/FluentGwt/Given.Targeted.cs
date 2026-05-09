@@ -1,13 +1,13 @@
 namespace FluentGwt;
 
-public sealed record Given<T> : GivenBase<T>
+public sealed record Given<Target> : GivenBase<Target>
 {
-	protected override Func<T> Target =>
-		() => GetState<T>(DefaultKey);
+	protected override Func<Target> Subject =>
+		() => GetState<Target>(DefaultKey);
 
-	internal Given(T target) =>
+	internal Given(Target target) =>
 		AddState(DefaultKey, () => target);
 
-	internal Given(T target, Func<T, Task> transition)
+	internal Given(Target target, Func<Target, Task> transition)
 		: this(target) => AddTransition(transition);
 }

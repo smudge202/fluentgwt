@@ -17,7 +17,7 @@ internal static class Expect
 		async () =>
 		{
 			var failure = await Throws<Failure>(given.Arrange, exactly: false);
-			return (given.Subject, failure);
+			return (given.Current, failure);
 		};
 
 	public static Func<Target, Failure, ValueTask> Nothing<Target, Failure>() => (_, _) => ValueTask.CompletedTask;

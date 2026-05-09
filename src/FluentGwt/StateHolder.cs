@@ -7,24 +7,24 @@ public abstract record StateHolder
 {
 	internal static readonly object DefaultKey = new();
 
-	private static class Holder<T>
+	private static class Holder<Value>
 	{
-		public static readonly ConditionalWeakTable<StateHolder, Lazy<ConcurrentDictionary<object, T>>>
+		public static readonly ConditionalWeakTable<StateHolder, Lazy<ConcurrentDictionary<object, Value>>>
 			Store = new();
 	}
 
-	internal void AddState<T>(object key, Func<T> state)
+	internal void AddState<Value>(object key, Func<Value> state)
 	{
 		ArgumentNullException.ThrowIfNull(key);
 
-		if (Holder<T>.Store.TryGetValue(this, out var lazy))
+		if (Holder<Value>.Store.TryGetValue(this, out var lazy))
 			lazy.Value.AddOrUpdate(key,
 				_ => state(),
 				(_, _) => state());
 		else
-			Holder<T>.Store.Add(this, new Lazy<ConcurrentDictionary<object, T>>(() =>
+			Holder<Value>.Store.Add(this, new Lazy<ConcurrentDictionary<object, Value>>(() =>
 			{
-				var dictionary = new ConcurrentDictionary<object, T>();
+				var dictionary = new ConcurrentDictionary<object, Value>();
 				dictionary.AddOrUpdate(key,
 					_ => state(),
 					(_, _) => state());
@@ -32,13 +32,13 @@ public abstract record StateHolder
 			}));
 	}
 
-	internal T GetState<T>(object key)
+	internal Value GetState<Value>(object key)
 	{
-		var dictionary = Holder<T>.Store.TryGetValue(this, out var lazy)
+		var dictionary = Holder<Value>.Store.TryGetValue(this, out var lazy)
 			? lazy.Value
-			: throw new InvalidOperationException($"State for {typeof(T).Name} is not available");
+			: throw new InvalidOperationException($"State for {typeof(Value).Name} is not available");
 		return dictionary.TryGetValue(key, out var state)
 			? state
-			: throw new InvalidOperationException($"State for {typeof(T).Name}({key}) is not available");
+			: throw new InvalidOperationException($"State for {typeof(Value).Name}({key}) is not available");
 	}
 }

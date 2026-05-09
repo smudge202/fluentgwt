@@ -8,7 +8,7 @@ internal static class AsyncExtensions
 		return Task.CompletedTask;
 	}
 
-	public static Func<T, Task> AsCompletedTask<T>(this Action<T>? transition) => x =>
+	public static Func<Target, Task> AsCompletedTask<Target>(this Action<Target>? transition) => x =>
 	{
 		transition?.Invoke(x);
 		return Task.CompletedTask;

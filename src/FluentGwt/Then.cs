@@ -32,5 +32,5 @@ public sealed class Then<Target>
 
 	public TaskAwaiter GetAwaiter() => ToTask().GetAwaiter();
 
-	private async Task Execute() => await _assertion(await _when.Act());
+	private Task Execute() => Teardown.Around(_when.Given, async () => await _assertion(await _when.Act()));
 }

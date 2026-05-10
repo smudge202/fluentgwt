@@ -57,5 +57,7 @@ dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.CA2007.severity = none
 
 [tests/**.cs]
+# Test doubles are constructed by the container under test, not by the test code.
+dotnet_diagnostic.CA1812.severity = none
 # Test classes are discovered by xunit, not instantiated by callers.
 dotnet_diagnostic.CA1515.severity = none

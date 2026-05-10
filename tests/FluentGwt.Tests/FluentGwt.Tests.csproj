@@ -19,6 +19,9 @@
 		<Compile Update="GivenTests.*.cs">
 			<DependentUpon>GivenTests.cs</DependentUpon>
 		</Compile>
+		<Compile Update="ServiceFixtureTests.*.cs">
+			<DependentUpon>ServiceFixtureTests.cs</DependentUpon>
+		</Compile>
 		<Compile Update="ChainTests.*.cs">
 			<DependentUpon>ChainTests.cs</DependentUpon>
 		</Compile>

@@ -43,9 +43,10 @@ public sealed class Then<Target, Result>
 
 	private Then<Target, Result> Followed(Func<Target, Result, ValueTask> assertion) => new(_when, _assertion.FollowedBy(assertion));
 
-	private async Task Execute()
-	{
-		var (target, result) = await _when.Act();
-		await _assertion(target, result);
-	}
+	private Task Execute() =>
+		Teardown.Around(_when.Given, async () =>
+		{
+			var (target, result) = await _when.Act();
+			await _assertion(target, result);
+		});
 }

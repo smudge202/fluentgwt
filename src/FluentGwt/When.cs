@@ -28,28 +28,30 @@ public sealed class When<Target>
 	public Then<Target> Then(Func<Target, ValueTask> assertion) => new(this, Step.From(assertion));
 
 	public ThenThrows<Target, Failure> ThenThrows<Failure>() where Failure : Exception =>
-		new(Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: false), Expect.Nothing<Target, Failure>());
+		new(_given, Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: false), Expect.Nothing<Target, Failure>());
 
 	public ThenThrows<Target, Failure> ThenThrows<Failure>(Action<Failure> assertion) where Failure : Exception =>
-		new(Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: false), Step.OnResult<Target, Failure>(Step.From(assertion)));
+		new(_given, Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: false), Step.OnResult<Target, Failure>(Step.From(assertion)));
 
 	public ThenThrows<Target, Failure> ThenThrows<Failure>(Action<Target, Failure> assertion) where Failure : Exception =>
-		new(Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: false), Step.From(assertion));
+		new(_given, Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: false), Step.From(assertion));
 
 	public ThenThrows<Target, Failure> ThenThrowsExactly<Failure>() where Failure : Exception =>
-		new(Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: true), Expect.Nothing<Target, Failure>());
+		new(_given, Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: true), Expect.Nothing<Target, Failure>());
 
 	public ThenThrows<Target, Failure> ThenThrowsExactly<Failure>(Action<Failure> assertion) where Failure : Exception =>
-		new(Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: true), Step.OnResult<Target, Failure>(Step.From(assertion)));
+		new(_given, Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: true), Step.OnResult<Target, Failure>(Step.From(assertion)));
 
 	public ThenThrows<Target, Failure> ThenThrowsExactly<Failure>(Action<Target, Failure> assertion) where Failure : Exception =>
-		new(Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: true), Step.From(assertion));
+		new(_given, Expect.Act<Target, Failure>(_given.Arrange, _act, exactly: true), Step.From(assertion));
 
 	public ThenThrows<Target, Failure> ThenArrangementFails<Failure>() where Failure : Exception =>
-		new(Expect.Arrangement<Target, Failure>(_given), Expect.Nothing<Target, Failure>());
+		new(_given, Expect.Arrangement<Target, Failure>(_given), Expect.Nothing<Target, Failure>());
 
 	public ThenThrows<Target, Failure> ThenArrangementFails<Failure>(Action<Failure> assertion) where Failure : Exception =>
-		new(Expect.Arrangement<Target, Failure>(_given), Step.OnResult<Target, Failure>(Step.From(assertion)));
+		new(_given, Expect.Arrangement<Target, Failure>(_given), Step.OnResult<Target, Failure>(Step.From(assertion)));
+
+	internal State<Target> Given => _given;
 
 	internal async Task<Target> Act()
 	{

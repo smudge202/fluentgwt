@@ -29,4 +29,10 @@ public abstract record GivenBase<Target> : State<Target>
 		ArgumentNullException.ThrowIfNull(act);
 		return new(this, act);
 	}
+
+	public When<Target, Service> WhenResolving<Service>() where Service : notnull =>
+		When(x => x is ServiceFixture fixture
+			? fixture.Resolve<Service>()
+			: throw new InvalidOperationException(
+				$"WhenResolving needs a chain whose target is a {nameof(ServiceFixture)}; this chain's target is {typeof(Target).Name}."));
 }

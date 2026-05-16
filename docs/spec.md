@@ -215,7 +215,11 @@ not others (see [§30](#30-what-the-old-design-got-wrong-and-what-modern-net-mak
   basis of resolvable-first tests. It resolves from the real provider and therefore also locks.
   With validation on, it is also `false` when the provider fails validation, and the validation
   exception is written to the test output (C23) so the reason is visible.
-- `WhenResolving<Service>()` is a built-in When step returning the resolved instance.
+- `WhenResolving<Service>()` is a built-in When step returning the resolved instance. It is
+  available on every chain and checks at run time that the target is a `ServiceFixture`, failing
+  with a message naming the actual target otherwise. (A C# 14 extension block constrained to
+  fixtures would need every type argument written — `WhenResolving<Fixture, Service>()` — because
+  an explicit type argument list cannot leave the receiver's type parameter to inference.)
 - At the end of the chain the provider is disposed (async where the service is `IAsyncDisposable`),
   then the fixture's own `DisposeAsync` runs. This happens on every path.
 
@@ -1135,8 +1139,10 @@ which is the intended meaning.
 
 - `Services.Override<Service>(instance)`, `Override<Service, Implementation>()` and
   `Override<Service>(factory)` remove **every** existing registration of `Service` and add the
-  replacement with the original's lifetime (singleton for an instance).
-- Keyed forms take a service key and touch only that key.
+  replacement with the original's lifetime (singleton for an instance). Overriding a service that
+  was never registered adds it as transient, the container's own default.
+- Keyed forms take a service key and touch only that key; an unkeyed override leaves keyed
+  registrations alone, and the reverse.
 - `Services.Stub<Service>()` registers a `Mock<Service>` (Moq package) and returns it, replacing any
   existing registration.
 - These obey the lock in C1.

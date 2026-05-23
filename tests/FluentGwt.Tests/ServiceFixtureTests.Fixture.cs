@@ -14,6 +14,8 @@ public sealed partial class ServiceFixtureTests
 		public TaskCompletionSource Signal { get; } = new();
 		public Func<Task> Chain { get; set; } = () => Task.CompletedTask;
 		public Exception? Failure { get; set; }
+		public Exception AssertionFailure { get; } = new InvalidOperationException("Assertion failure");
+		public Exception TeardownFailure { get; } = new InvalidOperationException("Teardown failure");
 		public object? Asserted { get; set; }
 	}
 
@@ -21,6 +23,12 @@ public sealed partial class ServiceFixtureTests
 	{
 		public List<string> Log { get; } = [];
 		public bool Disposed { get; private set; }
+
+		public ValueTask Record(string step)
+		{
+			Log.Add(step);
+			return ValueTask.CompletedTask;
+		}
 
 		protected override ValueTask DisposeFixture()
 		{

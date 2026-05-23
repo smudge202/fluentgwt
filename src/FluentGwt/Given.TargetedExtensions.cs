@@ -7,6 +7,7 @@ public static class GivenExtensions
 	public static Given<Target> Given<Target>(this Target target) =>
 		new(target);
 
+	[OverloadResolutionPriority(-1)]
 	public static Given<Target> Given<Target, Value>(this Target target, Value state)
 	{
 		if (typeof(Target) == typeof(Value))
@@ -15,9 +16,11 @@ public static class GivenExtensions
 		return target.Given(StateHolder.DefaultKey, state);
 	}
 
+	[OverloadResolutionPriority(-1)]
 	public static Given<Target> Given<Target, Value>(this Target target, string name, Value state) =>
 		target.Given((object)name, state);
 
+	[OverloadResolutionPriority(-1)]
 	public static Given<Target> Given<Target, Value>(this Target target, object key, Value state)
 	{
 		var given = target.Given();
@@ -25,13 +28,15 @@ public static class GivenExtensions
 		return given;
 	}
 
+	[OverloadResolutionPriority(-2)]
 	public static Given<Target> Given<Target>(this Target target, Action<Target> transition) =>
 		new(target, transition.AsCompletedTask());
 
-	[OverloadResolutionPriority(1)]
+	[OverloadResolutionPriority(-1)]
 	public static Given<Target> Given<Target>(this Target target, Func<Target, Task> transition) =>
 		new(target, transition);
 
+	[OverloadResolutionPriority(-2)]
 	public static Given<Target> Given<Target>(this Target target, Func<Target, ValueTask> transition)
 	{
 		ArgumentNullException.ThrowIfNull(transition);

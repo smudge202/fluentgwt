@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FluentGwt;
@@ -7,6 +8,8 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly Lock _lock = new();
 	private readonly ServiceCollection _services = [];
 	private readonly List<Type> _resolved = [];
+	private readonly List<Func<CancellationToken, ValueTask>> _teardown = [];
+	private readonly CancellationTokenSource _cancellation = new();
 	private ServiceProvider? _provider;
 	private bool _validateOnBuild = true;
 	private bool _validateScopes = true;
@@ -22,6 +25,8 @@ public abstract class ServiceFixture : IAsyncDisposable
 			}
 		}
 	}
+
+	public CancellationToken Cancellation => _cancellation.Token;
 
 	public bool ValidateOnBuild
 	{
@@ -73,15 +78,54 @@ public abstract class ServiceFixture : IAsyncDisposable
 		}
 	}
 
+	public void OnTeardown(Func<CancellationToken, ValueTask> callback)
+	{
+		ArgumentNullException.ThrowIfNull(callback);
+		lock (_lock)
+			_teardown.Add(callback);
+	}
+
 	public async ValueTask DisposeAsync()
 	{
-		if (_provider is not null)
-			await _provider.DisposeAsync();
-		await DisposeFixture();
+		var failures = await TearDown();
 		GC.SuppressFinalize(this);
+		Teardown.Rethrow(failures);
+	}
+
+	internal async ValueTask<IReadOnlyList<Exception>> TearDown()
+	{
+		await _cancellation.CancelAsync();
+		List<Func<CancellationToken, ValueTask>> callbacks;
+		lock (_lock)
+		{
+			callbacks = [.. _teardown];
+			_teardown.Clear();
+		}
+		callbacks.Reverse();
+		var failures = new List<Exception>();
+		foreach (var callback in callbacks)
+			await Collecting(failures, () => callback(CancellationToken.None));
+		if (_provider is not null)
+			await Collecting(failures, () => _provider.DisposeAsync());
+		await Collecting(failures, DisposeFixture);
+		_cancellation.Dispose();
+		return failures;
 	}
 
 	protected virtual ValueTask DisposeFixture() => ValueTask.CompletedTask;
+
+	[SuppressMessage("Design", "CA1031", Justification = "Every teardown step runs whatever an earlier one threw; the failures are collected and rethrown together.")]
+	private static async ValueTask Collecting(List<Exception> failures, Func<ValueTask> step)
+	{
+		try
+		{
+			await step();
+		}
+		catch (Exception failure)
+		{
+			failures.Add(failure);
+		}
+	}
 
 	private ServiceProvider Provider(Type resolving)
 	{

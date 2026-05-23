@@ -696,7 +696,11 @@ Suites hosting applications cancelled and disposed every host by hand in a fixtu
 - `x.OnTeardown(Func<CancellationToken, ValueTask>)` registers cleanup from any step; callbacks run
   in reverse registration order in phase 7.
 - Every teardown callback runs even if an earlier one throws; all teardown failures are aggregated
-  and reported after any primary failure, never instead of it.
+  and reported after any primary failure, never instead of it. Concretely: a primary failure alone
+  propagates unchanged; teardown failures alone propagate as themselves (one) or as an
+  `AggregateException` (several); both together propagate as one `AggregateException` whose first
+  inner exceptions are the primary failure's. Callbacks receive `CancellationToken.None` until the
+  xunit package supplies the test token.
 - Teardown runs on every path, including arrangement failure (for whatever was arranged so far).
 
 ### Example

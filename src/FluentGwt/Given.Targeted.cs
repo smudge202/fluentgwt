@@ -10,4 +10,10 @@ public sealed record Given<Target> : GivenBase<Target>
 
 	internal Given(Target target, Func<Target, Task> transition)
 		: this(target) => AddTransition(transition);
+
+	public Given<Target> Deferred()
+	{
+		DeferLast();
+		return this;
+	}
 }

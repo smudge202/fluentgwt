@@ -366,7 +366,9 @@ was the commonest deferred step, and seeding the running host had to be deferred
 ### Behaviour
 
 - `.Deferred()` marks the given immediately before it as deferred. Calling it with no preceding
-  given throws `InvalidOperationException`.
+  given throws `InvalidOperationException`. "Given" here means a transition: state givens are
+  stored when declared and have nothing to defer, so `.Deferred()` after one marks the transition
+  before it. It is available on targeted chains, which is where fixtures live.
 - Deferred givens run in phase 3, after host start, in the order they were deferred.
 - Host start is **not** a given the user defers: it is phase 2, automatic, and happens after all
   immediate givens however the chain is written (C17). This removes the commonest reason to defer.

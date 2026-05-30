@@ -108,6 +108,19 @@ public sealed partial class ServiceFixtureTests
 			.ThenThrows<InvalidOperationException>();
 
 	[Fact]
+	public Task WhenDeferredGivenResolvesThenLaterImmediateRegistrationsStillApply()
+		=> Context
+			.GivenChain(x => x.Subject
+				.Given(s => s.Services.AddSingleton(x.Clock))
+				.Given(s => s.Resolve<Clock>())
+				.Deferred()
+				.Given(s => s.Services.Override(x.OtherClock))
+				.WhenResolving<Clock>()
+				.Then(clock => x.Asserted = clock))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().BeSameAs(x.OtherClock));
+
+	[Fact]
 	public Task WhenResolvingOnAChainThatIsNotAFixtureThenTheFailureNamesTheTarget()
 		=> Context
 			.Given()

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+
 namespace FluentGwt.Tests;
 
 public sealed partial class ServiceFixtureTests
@@ -10,6 +12,7 @@ public sealed partial class ServiceFixtureTests
 		public SubjectFixture Other { get; } = new();
 		public Clock Clock { get; } = new();
 		public Clock OtherClock { get; } = new();
+		public IConfiguration OwnConfiguration { get; } = new ConfigurationBuilder().Build();
 		public TaskCompletionSource Entered { get; } = new();
 		public TaskCompletionSource Signal { get; } = new();
 		public Func<Task> Chain { get; set; } = () => Task.CompletedTask;

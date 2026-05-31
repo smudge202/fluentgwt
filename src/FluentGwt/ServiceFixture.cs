@@ -1,5 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace FluentGwt;
 
@@ -10,6 +12,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly List<Type> _resolved = [];
 	private readonly List<Func<CancellationToken, ValueTask>> _teardown = [];
 	private readonly CancellationTokenSource _cancellation = new();
+	private readonly TestConfiguration _configuration;
 	private ServiceProvider? _provider;
 	private bool _validateOnBuild = true;
 	private bool _validateScopes = true;
@@ -25,6 +28,11 @@ public abstract class ServiceFixture : IAsyncDisposable
 			}
 		}
 	}
+
+	protected ServiceFixture() =>
+		_configuration = new(GetType().Assembly);
+
+	public IConfiguration Configuration => _configuration.Root;
 
 	public CancellationToken Cancellation => _cancellation.Token;
 
@@ -77,6 +85,8 @@ public abstract class ServiceFixture : IAsyncDisposable
 			return false;
 		}
 	}
+
+	public void Configure(string key, string? value) => _configuration.Set(key, value);
 
 	public void OnTeardown(Func<CancellationToken, ValueTask> callback)
 	{
@@ -132,6 +142,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 		lock (_lock)
 		{
 			_resolved.Add(resolving);
+			_services.TryAddSingleton(Configuration);
 			return _provider ??= _services.BuildServiceProvider(new ServiceProviderOptions
 			{
 				ValidateOnBuild = _validateOnBuild,

@@ -3,6 +3,7 @@
     <Project Path="src/FluentGwt/FluentGwt.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FluentGwt.Tests.Integrated/FluentGwt.Tests.Integrated.csproj" />
     <Project Path="tests/FluentGwt.Tests/FluentGwt.Tests.csproj" />
   </Folder>
 </Solution>

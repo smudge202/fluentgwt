@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace FluentGwt;
 
@@ -13,6 +14,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly List<Func<CancellationToken, ValueTask>> _teardown = [];
 	private readonly CancellationTokenSource _cancellation = new();
 	private readonly TestConfiguration _configuration;
+	private readonly List<IHostedService> _started = [];
 	private ServiceProvider? _provider;
 	private bool _validateOnBuild = true;
 	private bool _validateScopes = true;
@@ -35,6 +37,8 @@ public abstract class ServiceFixture : IAsyncDisposable
 	public IConfiguration Configuration => _configuration.Root;
 
 	public CancellationToken Cancellation => _cancellation.Token;
+
+	public bool IntegrationEnabled => GetType().Assembly.IsDefined(typeof(IntegrationEnabledAttribute), inherit: false);
 
 	public bool ValidateOnBuild
 	{
@@ -102,9 +106,34 @@ public abstract class ServiceFixture : IAsyncDisposable
 		Teardown.Rethrow(failures);
 	}
 
+	internal async Task StartHostedServices()
+	{
+		if (!IntegrationEnabled)
+			return;
+		var services = Resolve<IEnumerable<IHostedService>>().ToList();
+		foreach (var service in services.OfType<IHostedLifecycleService>())
+			await service.StartingAsync(CancellationToken.None);
+		foreach (var service in services)
+		{
+			await service.StartAsync(CancellationToken.None);
+			_started.Add(service);
+		}
+		foreach (var service in services.OfType<IHostedLifecycleService>())
+			await service.StartedAsync(CancellationToken.None);
+	}
+
 	internal async ValueTask<IReadOnlyList<Exception>> TearDown()
 	{
 		await _cancellation.CancelAsync();
+		var failures = new List<Exception>();
+		var started = Enumerable.Reverse(_started).ToList();
+		_started.Clear();
+		foreach (var service in started.OfType<IHostedLifecycleService>())
+			await Collecting(failures, () => new ValueTask(service.StoppingAsync(CancellationToken.None)));
+		foreach (var service in started)
+			await Collecting(failures, () => new ValueTask(service.StopAsync(CancellationToken.None)));
+		foreach (var service in started.OfType<IHostedLifecycleService>())
+			await Collecting(failures, () => new ValueTask(service.StoppedAsync(CancellationToken.None)));
 		List<Func<CancellationToken, ValueTask>> callbacks;
 		lock (_lock)
 		{
@@ -112,7 +141,6 @@ public abstract class ServiceFixture : IAsyncDisposable
 			_teardown.Clear();
 		}
 		callbacks.Reverse();
-		var failures = new List<Exception>();
 		foreach (var callback in callbacks)
 			await Collecting(failures, () => callback(CancellationToken.None));
 		if (_provider is not null)

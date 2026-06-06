@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<IsPackable>false</IsPackable>
+		<RootNamespace>FluentGwt.Tests.Integrated</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\FluentGwt\FluentGwt.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="FluentGwt.IntegrationEnabledAttribute" />
+	</ItemGroup>
+
+</Project>

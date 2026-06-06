@@ -22,6 +22,8 @@ public abstract record State<Target> : StateHolder
 		var target = Subject();
 		foreach (var transition in Transitions.TakeInRunOrder())
 			await transition(target);
+		if (target is ServiceFixture fixture)
+			await fixture.StartHostedServices();
 		return target;
 	}
 }

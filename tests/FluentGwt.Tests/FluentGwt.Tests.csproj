@@ -8,11 +8,13 @@
 
 	<ItemGroup>
 		<PackageReference Include="AwesomeAssertions" Version="9.6.0" />
+		<PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.12" />
 		<PackageReference Include="xunit.v3" Version="4.0.1" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\FluentGwt.Tests.Integrated\FluentGwt.Tests.Integrated.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -25,6 +27,9 @@
 		</Compile>
 		<Compile Update="ServiceFixtureTests.*.cs">
 			<DependentUpon>ServiceFixtureTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HostedServiceTests.*.cs">
+			<DependentUpon>HostedServiceTests.cs</DependentUpon>
 		</Compile>
 		<Compile Update="ChainTests.*.cs">
 			<DependentUpon>ChainTests.cs</DependentUpon>

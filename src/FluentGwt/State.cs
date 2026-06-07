@@ -23,7 +23,10 @@ public abstract record State<Target> : StateHolder
 		foreach (var transition in Transitions.TakeInRunOrder())
 			await transition(target);
 		if (target is ServiceFixture fixture)
+		{
+			fixture.ChooseSeedNow();
 			await fixture.StartHostedServices();
+		}
 		return target;
 	}
 }

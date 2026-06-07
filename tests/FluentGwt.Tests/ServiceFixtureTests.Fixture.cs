@@ -41,6 +41,25 @@ public sealed partial class ServiceFixtureTests
 		}
 	}
 
+	internal sealed class DeclaredSeedFixture : ServiceFixture
+	{
+		public const int DeclaredSeed = 20261008;
+		public const string PinnedTestId = "p3resjvtm2uq";
+
+		protected override int? FixedSeed => DeclaredSeed;
+	}
+
+	internal abstract class SharedSeedFixture : ServiceFixture
+	{
+		public const int SharedSeed = 42;
+
+		protected override int? FixedSeed => SharedSeed;
+	}
+
+	internal sealed class FirstSharedSeedFixture : SharedSeedFixture;
+
+	internal sealed class SecondSharedSeedFixture : SharedSeedFixture;
+
 	internal sealed class Clock;
 
 	internal sealed class Calendar;

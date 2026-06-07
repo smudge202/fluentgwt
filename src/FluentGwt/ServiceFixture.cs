@@ -1,4 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -15,6 +17,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly CancellationTokenSource _cancellation = new();
 	private readonly TestConfiguration _configuration;
 	private readonly List<IHostedService> _started = [];
+	private readonly Lazy<int> _seed;
 	private ServiceProvider? _provider;
 	private bool _validateOnBuild = true;
 	private bool _validateScopes = true;
@@ -31,8 +34,15 @@ public abstract class ServiceFixture : IAsyncDisposable
 		}
 	}
 
-	protected ServiceFixture() =>
+	protected ServiceFixture()
+	{
 		_configuration = new(GetType().Assembly);
+		_seed = new(ChooseSeed);
+	}
+
+	public int Seed => _seed.Value;
+
+	public string TestId => TestIdentity.Derive(Seed, GetType().FullName ?? GetType().Name);
 
 	public IConfiguration Configuration => _configuration.Root;
 
@@ -106,6 +116,8 @@ public abstract class ServiceFixture : IAsyncDisposable
 		Teardown.Rethrow(failures);
 	}
 
+	internal void ChooseSeedNow() => _ = Seed;
+
 	internal async Task StartHostedServices()
 	{
 		if (!IntegrationEnabled)
@@ -150,6 +162,8 @@ public abstract class ServiceFixture : IAsyncDisposable
 		return failures;
 	}
 
+	protected virtual int? FixedSeed => null;
+
 	protected virtual ValueTask DisposeFixture() => ValueTask.CompletedTask;
 
 	[SuppressMessage("Design", "CA1031", Justification = "Every teardown step runs whatever an earlier one threw; the failures are collected and rethrown together.")]
@@ -163,6 +177,16 @@ public abstract class ServiceFixture : IAsyncDisposable
 		{
 			failures.Add(failure);
 		}
+	}
+
+	private int ChooseSeed()
+	{
+		var forced = Configuration["FluentGwtSeed"];
+		if (string.IsNullOrWhiteSpace(forced))
+			return FixedSeed ?? RandomNumberGenerator.GetInt32(int.MaxValue);
+		return int.TryParse(forced, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seed)
+			? seed
+			: throw new InvalidOperationException($"FluentGwtSeed forces the seed and must be an integer, but was '{forced}'.");
 	}
 
 	private ServiceProvider Provider(Type resolving)

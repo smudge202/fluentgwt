@@ -20,6 +20,7 @@ public sealed partial class ServiceFixtureTests
 		public Exception AssertionFailure { get; } = new InvalidOperationException("Assertion failure");
 		public Exception TeardownFailure { get; } = new InvalidOperationException("Teardown failure");
 		public object? Asserted { get; set; }
+		public IDisposable? Fired { get; set; }
 	}
 
 	internal sealed class SubjectFixture : ServiceFixture
@@ -61,6 +62,11 @@ public sealed partial class ServiceFixtureTests
 	internal sealed class SecondSharedSeedFixture : SharedSeedFixture;
 
 	internal sealed class Clock;
+
+	internal sealed class Stamper(TimeProvider time)
+	{
+		public TimeProvider Time => time;
+	}
 
 	internal sealed class Calendar;
 

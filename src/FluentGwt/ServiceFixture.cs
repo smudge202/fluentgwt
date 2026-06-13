@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Time.Testing;
 
 namespace FluentGwt;
 
@@ -18,6 +19,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly TestConfiguration _configuration;
 	private readonly List<IHostedService> _started = [];
 	private readonly Lazy<int> _seed;
+	private readonly Lazy<FakeTimeProvider> _time;
 	private ServiceProvider? _provider;
 	private bool _validateOnBuild = true;
 	private bool _validateScopes = true;
@@ -38,9 +40,12 @@ public abstract class ServiceFixture : IAsyncDisposable
 	{
 		_configuration = new(GetType().Assembly);
 		_seed = new(ChooseSeed);
+		_time = new(() => new FakeTimeProvider(new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero).AddSeconds(Seed)));
 	}
 
 	public int Seed => _seed.Value;
+
+	public FakeTimeProvider Time => _time.Value;
 
 	public string TestId => TestIdentity.Derive(Seed, GetType().FullName ?? GetType().Name);
 
@@ -195,6 +200,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 		{
 			_resolved.Add(resolving);
 			_services.TryAddSingleton(Configuration);
+			_services.TryAddSingleton<TimeProvider>(Time);
 			return _provider ??= _services.BuildServiceProvider(new ServiceProviderOptions
 			{
 				ValidateOnBuild = _validateOnBuild,

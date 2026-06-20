@@ -1703,7 +1703,8 @@ controlling it.
 
 ### Behaviour
 
-- `x.Time` is a `FakeTimeProvider` starting at an instant derived from the seed (C14).
+- `x.Time` is a `FakeTimeProvider` starting at an instant derived from the seed (C14): midnight UTC
+  on 1 January 2000 plus `Seed` seconds, which puts any 31-bit seed between 2000 and 2068.
 - It is registered as `TimeProvider` in the fixture container and in every host with `TryAdd`, so
   products that inject `TimeProvider` (including resilience pipelines) use it.
 - `x.Time.Advance(...)` moves time forward within any step.

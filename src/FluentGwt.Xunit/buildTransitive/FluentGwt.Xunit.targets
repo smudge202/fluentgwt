@@ -1,0 +1,12 @@
+<Project>
+
+	<PropertyGroup Condition="'$(FluentGwtIntegration)' == 'true'">
+		<DefineConstants>$(DefineConstants);INTEGRATION</DefineConstants>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="FluentGwt.XunitTestRunnerAttribute" />
+		<AssemblyAttribute Include="FluentGwt.IntegrationEnabledAttribute" Condition="'$(FluentGwtIntegration)' == 'true'" />
+	</ItemGroup>
+
+</Project>

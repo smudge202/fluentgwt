@@ -24,6 +24,18 @@ internal static class Step
 		return step;
 	}
 
+	public static Func<Target, ValueTask> From<Target>(Func<Target, CancellationToken, Task> step)
+	{
+		ArgumentNullException.ThrowIfNull(step);
+		return x => new ValueTask(step(x, Runner.Token));
+	}
+
+	public static Func<Target, ValueTask> From<Target>(Func<Target, CancellationToken, ValueTask> step)
+	{
+		ArgumentNullException.ThrowIfNull(step);
+		return x => step(x, Runner.Token);
+	}
+
 	public static Func<Target, Result, ValueTask> From<Target, Result>(Action<Target, Result> step)
 	{
 		ArgumentNullException.ThrowIfNull(step);

@@ -13,5 +13,17 @@ public sealed partial class ChainTests
 		public Exception? Failure { get; set; }
 		public OperationCanceledException? Cancellation { get; set; }
 		public object? Asserted { get; set; }
+
+		public Task Token(CancellationToken token)
+		{
+			Asserted = token;
+			return Task.CompletedTask;
+		}
+
+		public ValueTask TokenLater(CancellationToken token)
+		{
+			Asserted = token;
+			return ValueTask.CompletedTask;
+		}
 	}
 }

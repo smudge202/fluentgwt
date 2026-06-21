@@ -20,6 +20,11 @@ public sealed class When<Target, Result>
 
 	public When<Target, Result> And(Func<Target, ValueTask> step) => Preserving(Step.From(step));
 
+	[OverloadResolutionPriority(1)]
+	public When<Target, Result> And(Func<Target, CancellationToken, Task> step) => Preserving(Step.From(step));
+
+	public When<Target, Result> And(Func<Target, CancellationToken, ValueTask> step) => Preserving(Step.From(step));
+
 	public When<Target, Next> AndResult<Next>(Func<Target, Next> act)
 	{
 		ArgumentNullException.ThrowIfNull(act);

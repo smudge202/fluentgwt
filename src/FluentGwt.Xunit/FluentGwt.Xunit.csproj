@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<AssemblyName>FluentGwt.Xunit</AssemblyName>
+		<RootNamespace>FluentGwt</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="xunit.v3.extensibility.core" Version="4.0.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="buildTransitive\FluentGwt.Xunit.targets" Pack="true" PackagePath="buildTransitive" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" />
+	</ItemGroup>
+
+</Project>

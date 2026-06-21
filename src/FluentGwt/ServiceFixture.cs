@@ -15,7 +15,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly ServiceCollection _services = [];
 	private readonly List<Type> _resolved = [];
 	private readonly List<Func<CancellationToken, ValueTask>> _teardown = [];
-	private readonly CancellationTokenSource _cancellation = new();
+	private readonly CancellationTokenSource _cancellation = CancellationTokenSource.CreateLinkedTokenSource(Runner.Token);
 	private readonly TestConfiguration _configuration;
 	private readonly List<IHostedService> _started = [];
 	private readonly Lazy<int> _seed;
@@ -129,14 +129,14 @@ public abstract class ServiceFixture : IAsyncDisposable
 			return;
 		var services = Resolve<IEnumerable<IHostedService>>().ToList();
 		foreach (var service in services.OfType<IHostedLifecycleService>())
-			await service.StartingAsync(CancellationToken.None);
+			await service.StartingAsync(Runner.Token);
 		foreach (var service in services)
 		{
-			await service.StartAsync(CancellationToken.None);
+			await service.StartAsync(Runner.Token);
 			_started.Add(service);
 		}
 		foreach (var service in services.OfType<IHostedLifecycleService>())
-			await service.StartedAsync(CancellationToken.None);
+			await service.StartedAsync(Runner.Token);
 	}
 
 	internal async ValueTask<IReadOnlyList<Exception>> TearDown()
@@ -146,11 +146,11 @@ public abstract class ServiceFixture : IAsyncDisposable
 		var started = Enumerable.Reverse(_started).ToList();
 		_started.Clear();
 		foreach (var service in started.OfType<IHostedLifecycleService>())
-			await Collecting(failures, () => new ValueTask(service.StoppingAsync(CancellationToken.None)));
+			await Collecting(failures, () => new ValueTask(service.StoppingAsync(Runner.Token)));
 		foreach (var service in started)
-			await Collecting(failures, () => new ValueTask(service.StopAsync(CancellationToken.None)));
+			await Collecting(failures, () => new ValueTask(service.StopAsync(Runner.Token)));
 		foreach (var service in started.OfType<IHostedLifecycleService>())
-			await Collecting(failures, () => new ValueTask(service.StoppedAsync(CancellationToken.None)));
+			await Collecting(failures, () => new ValueTask(service.StoppedAsync(Runner.Token)));
 		List<Func<CancellationToken, ValueTask>> callbacks;
 		lock (_lock)
 		{
@@ -159,7 +159,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 		}
 		callbacks.Reverse();
 		foreach (var callback in callbacks)
-			await Collecting(failures, () => callback(CancellationToken.None));
+			await Collecting(failures, () => callback(Runner.Token));
 		if (_provider is not null)
 			await Collecting(failures, () => _provider.DisposeAsync());
 		await Collecting(failures, DisposeFixture);

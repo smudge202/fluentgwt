@@ -13,12 +13,14 @@ public sealed partial class HostedServiceTests
 			.When(x => x.Integrated.IntegrationEnabled)
 			.Then(enabled => enabled.Should().BeTrue());
 
+#if !INTEGRATION
 	[Fact]
 	public Task WhenMarkerIsAbsentThenFixtureReportsIntegrationDisabled()
 		=> Context
 			.Given()
 			.When(x => x.Plain.IntegrationEnabled)
 			.Then(enabled => enabled.Should().BeFalse());
+#endif
 
 	[Fact]
 	public Task WhenMarkerIsPresentThenHostedServicesStartBeforeTheAct()
@@ -51,6 +53,7 @@ public sealed partial class HostedServiceTests
 			.WhenExecutingTheChain()
 			.Then(x => x.Integrated.Log.Should().Equal("start a", "start b", "stop b", "stop a"));
 
+#if !INTEGRATION
 	[Fact]
 	public Task WhenMarkerIsAbsentThenHostedServicesAreNotStarted()
 		=> Context
@@ -60,6 +63,7 @@ public sealed partial class HostedServiceTests
 				.Then(_ => { }))
 			.WhenExecutingTheChain()
 			.Then(x => x.Plain.Log.Should().Equal("act"));
+#endif
 
 	[Fact]
 	public Task WhenAssertionFailsThenHostedServicesAreStillStopped()
@@ -112,4 +116,14 @@ public sealed partial class HostedServiceTests
 				.Then(_ => { }))
 			.WhenExecutingTheChain()
 			.Then(x => x.Integrated.Log.Should().Equal("act"));
+
+	[Fact]
+	public Task WhenHostedServiceStartsAndStopsThenItReceivesTheTestToken()
+		=> Context
+			.GivenChain(x => x.Integrated
+				.Given(f => f.Services.AddHostedService(_ => new TokenRecorder(x.Tokens)))
+				.When(_ => { })
+				.Then(_ => { }))
+			.WhenExecutingTheChain()
+			.Then(x => x.Tokens.Should().Equal(TestContext.Current.CancellationToken, TestContext.Current.CancellationToken));
 }

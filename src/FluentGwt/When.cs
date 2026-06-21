@@ -20,6 +20,11 @@ public sealed class When<Target>
 
 	public When<Target> And(Func<Target, ValueTask> step) => new(_given, _act.FollowedBy(Step.From(step)));
 
+	[OverloadResolutionPriority(1)]
+	public When<Target> And(Func<Target, CancellationToken, Task> step) => new(_given, _act.FollowedBy(Step.From(step)));
+
+	public When<Target> And(Func<Target, CancellationToken, ValueTask> step) => new(_given, _act.FollowedBy(Step.From(step)));
+
 	public Then<Target> Then(Action<Target> assertion) => new(this, Step.From(assertion));
 
 	[OverloadResolutionPriority(1)]

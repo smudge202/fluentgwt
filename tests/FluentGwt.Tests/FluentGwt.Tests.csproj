@@ -14,6 +14,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Xunit\FluentGwt.Xunit.csproj" />
 		<ProjectReference Include="..\FluentGwt.Tests.Integrated\FluentGwt.Tests.Integrated.csproj" />
 	</ItemGroup>
 
@@ -35,5 +36,7 @@
 			<DependentUpon>ChainTests.cs</DependentUpon>
 		</Compile>
 	</ItemGroup>
+
+	<Import Project="..\..\src\FluentGwt.Xunit\buildTransitive\FluentGwt.Xunit.targets" />
 
 </Project>

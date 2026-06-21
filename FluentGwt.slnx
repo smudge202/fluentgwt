@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/FluentGwt.Xunit/FluentGwt.Xunit.csproj" />
     <Project Path="src/FluentGwt/FluentGwt.csproj" />
   </Folder>
   <Folder Name="/tests/">

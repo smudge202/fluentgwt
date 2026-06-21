@@ -18,6 +18,7 @@ public sealed partial class HostedServiceTests
 		public Exception StartFailure { get; } = new InvalidOperationException("Start failure");
 		public Func<Task> Chain { get; set; } = () => Task.CompletedTask;
 		public Exception? Failure { get; set; }
+		public List<CancellationToken> Tokens { get; } = [];
 	}
 
 	internal sealed class PlainFixture : ServiceFixture
@@ -64,6 +65,21 @@ public sealed partial class HostedServiceTests
 		private Task Record(string step)
 		{
 			log.Add(step);
+			return Task.CompletedTask;
+		}
+	}
+
+	internal sealed class TokenRecorder(List<CancellationToken> tokens) : IHostedService
+	{
+		public Task StartAsync(CancellationToken cancellationToken)
+		{
+			tokens.Add(cancellationToken);
+			return Task.CompletedTask;
+		}
+
+		public Task StopAsync(CancellationToken cancellationToken)
+		{
+			tokens.Add(cancellationToken);
 			return Task.CompletedTask;
 		}
 	}

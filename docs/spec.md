@@ -645,7 +645,7 @@ run.
 
 - Every step accepts sync, `Task` and `ValueTask` forms. No step returns a `Task` of the chain; the
   chain is lazy, so async work inside a given never needs the chain itself to be awaited.
-- Every step has a form taking a `CancellationToken`.
+- Every Given, When and `And` step after either has a form taking a `CancellationToken`, in `Task` and `ValueTask` shapes. Assertions do not: on a When with a result, `Then((x, result) => ...)` and a token form `(result, cancellationToken) => ...` would both be two-parameter lambdas, and an `async (x, result) => ...` would silently bind as the token form.
 - The token is the **test's** token: with the xunit package referenced, it is
   `TestContext.Current.CancellationToken`, supplied without per-test code. Without it, `None`.
 - The fixture's own `Cancellation` token (C10) is linked to it.
@@ -818,7 +818,8 @@ the choice belongs to the build: it is visible in the command that produced the 
   2. add an `AssemblyAttribute` item for `FluentGwt.IntegrationEnabledAttribute`, so the SDK's
      generated assembly info carries the **marker** `[assembly: IntegrationEnabled]`.
 
-  When the property is not `true`, they do neither. Changing the property changes the generated
+  When the property is not `true`, they do neither. Whatever the property, they also stamp
+  `[assembly: FluentGwt.XunitTestRunner]`, which is how core finds the test token (C8). Changing the property changes the generated
   assembly info, so an incremental build recompiles; no clean build is needed.
   - **Why a dedicated property** rather than `-p:DefineConstants=INTEGRATION`: a property set on
     the command line replaces the project's `DefineConstants` outright, dropping `DEBUG`, `TRACE`
@@ -827,8 +828,11 @@ the choice belongs to the build: it is visible in the command that produced the 
 - **The marker** `IntegrationEnabledAttribute` is an argument-less, assembly-level attribute defined
   in the core package, so the core reads it without the xunit package. A project that does not use
   the xunit package may write `[assembly: IntegrationEnabled]` itself.
-- **Where the marker is read.** The integration attributes read it from the assembly that declares
-  the test class; the fixture reads it from the assembly that declares its own runtime type, and
+- **Where the marker is read.** The integration attributes read it, through `IntegrationGate.IsOpen`,
+  from the entry assembly — the test executable itself under Microsoft.Testing.Platform. (xunit's
+  dynamic skip calls a static property, which cannot know the test class, so the test class's own
+  assembly is not available to it.) The fixture reads it from the assembly that declares its own
+  runtime type, and
   exposes the answer as `ServiceFixture.IntegrationEnabled`. Under the library's convention — a
   nested `Fixture` in the test class — both are the test assembly. It is read per evaluation;
   nothing is cached for the process. "Integration is enabled", everywhere in this document, means
@@ -837,14 +841,14 @@ the choice belongs to the build: it is visible in the command that produced the 
   There is no chain step for it.
   - Each takes an `IntegrationJustification` and a reason, in that order, followed by the
     caller-file/line parameters xunit v3 requires.
-  - `IntegrationJustification` is a `[Flags]` enum: `NetworkIO`, `DiskIO`, `UnsafeCode`,
+  - `IntegrationJustification` is a `[Flags]` enum: `NetworkIo`, `DiskIo`, `UnsafeCode`,
     `MultipleThreads`, `ThreadSynchronisation`. It says *what* makes the test an integration test;
     the reason says *why*, in the author's words.
   - A zero justification or an empty reason is reported as a failed test, never run and never
     skipped.
   - Both use xunit v3's native dynamic skip. With the marker absent, the test is reported as
     *skipped* with the message `Integration disabled (built without FluentGwtIntegration=true).
-    Justification: NetworkIO, MultipleThreads. Reason: <reason>`; for a theory, every row is
+    Justification: NetworkIo, MultipleThreads. Reason: <reason>`; for a theory, every row is
     skipped with that message. With the marker present, the test runs.
   - The attribute is written once per test. No `#if` around it is needed: an assembly built without
     the property still compiles, discovers and reports every integration test, as skipped.
@@ -893,7 +897,7 @@ the choice belongs to the build: it is visible in the command that produced the 
 ### Example
 
 ```csharp
-[IntegrationFact(IntegrationJustification.NetworkIO | IntegrationJustification.MultipleThreads, "Publishes to the real message bus and waits for the dispatch consumer")]
+[IntegrationFact(IntegrationJustification.NetworkIo | IntegrationJustification.MultipleThreads, "Publishes to the real message bus and waits for the dispatch consumer")]
 public Task WhenOrderIsPublishedThenDispatchConsumesIt()
 	=> Context
 		.GivenDefaults()
@@ -1882,14 +1886,14 @@ All in the root namespace `FluentGwt` (extension classes included, so a test fil
 | `[assembly: IntegrationEnabled]` (`IntegrationEnabledAttribute`) | The integration marker the xunit package's build targets emit (C12). |
 | `IntegrationEnabled` | Whether the assembly declaring the fixture's runtime type carries the marker (C12). |
 | `IServiceCollection.RemoveHostedService<Implementation>()`, `RemoveHostedService(Type)`, `RemoveApplicationHostedServices()` | Keep hosted services out of phase 4 or out of a host (C12). |
-| `public interface CancellationSource` | Abstraction the xunit package implements. |
+| `abstract class TestRunnerAttribute` | Assembly-level attribute supplying the test token; core reads it from the entry assembly (the test executable under Microsoft.Testing.Platform). The xunit package derives `XunitTestRunnerAttribute`, and its build targets stamp it on every consuming project. |
 
 **Xunit package** — `[IntegrationFact(justification, reason)]`, `[IntegrationTheory(justification,
-reason)]`, `[Flags] enum IntegrationJustification` (`NetworkIO`, `DiskIO`, `UnsafeCode`,
+reason)]`, `[Flags] enum IntegrationJustification` (`NetworkIo`, `DiskIo`, `UnsafeCode`,
 `MultipleThreads`, `ThreadSynchronisation`), the `buildTransitive` targets reading the MSBuild
 property `FluentGwtIntegration` and defining the `INTEGRATION` symbol, `FixtureData<Fixture, Value>`,
 `FixtureRow<Fixture, Value>`, the test-output log sink, test identity for `TestId`, and the
-automatic test-token `CancellationSource`.
+`XunitTestRunnerAttribute` supplying the test token, and `IntegrationGate.IsOpen`, the static property the integration attributes skip unless.
 
 **Bogus package** — `ServiceFixture.Random`, `ServiceFixture.Fake` (seeded with `Seed`).
 
@@ -1983,7 +1987,7 @@ extension methods in the root namespace, with `TryAdd` defaults.
 
 | Package | Holds | Depends on |
 |---|---|---|
-| `FluentGwt` | Chain (2023, extended), phases, `ServiceFixture`, container lock and validation, overrides, configuration, integration marker attribute and its reading, hosted-service lifecycle and removal helpers, teardown, seed selection, `TestId`, `FakeTimeProvider` wiring, log capture, `CancellationSource` | `Microsoft.Extensions.DependencyInjection`, `.Configuration.*`, `.Hosting.Abstractions`, `.TimeProvider.Testing`, `.Diagnostics.Testing`, `AwesomeAssertions`, `FluentGwt.Analysers` |
+| `FluentGwt` | Chain (2023, extended), phases, `ServiceFixture`, container lock and validation, overrides, configuration, integration marker attribute and its reading, hosted-service lifecycle and removal helpers, teardown, seed selection, `TestId`, `FakeTimeProvider` wiring, log capture, `TestRunnerAttribute` | `Microsoft.Extensions.DependencyInjection`, `.Configuration.*`, `.Hosting.Abstractions`, `.TimeProvider.Testing`, `.Diagnostics.Testing`, `AwesomeAssertions`, `FluentGwt.Analysers` |
 | `FluentGwt.Xunit` | Test token, `buildTransitive` targets for `FluentGwtIntegration` (the `INTEGRATION` symbol and the marker), `[IntegrationFact]`/`[IntegrationTheory]`, `IntegrationJustification`, `FixtureData`, test-output log sink, test identity for `TestId` | core, `xunit.v3.extensibility.core` |
 | `FluentGwt.Bogus` | `Random`, `Fake` | core, `Bogus` |
 | `FluentGwt.Moq` | `Stub<Service>()` | core, `Moq` |

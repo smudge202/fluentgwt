@@ -43,6 +43,20 @@ public static class GivenExtensions
 		return new(target, x => transition(x).AsTask());
 	}
 
+	[OverloadResolutionPriority(-1)]
+	public static Given<Target> Given<Target>(this Target target, Func<Target, CancellationToken, Task> transition)
+	{
+		ArgumentNullException.ThrowIfNull(transition);
+		return new(target, x => transition(x, Runner.Token));
+	}
+
+	[OverloadResolutionPriority(-2)]
+	public static Given<Target> Given<Target>(this Target target, Func<Target, CancellationToken, ValueTask> transition)
+	{
+		ArgumentNullException.ThrowIfNull(transition);
+		return new(target, x => transition(x, Runner.Token).AsTask());
+	}
+
 	public static GivenBase<Target> Given<Target, Value>(this GivenBase<Target> given, Value state) =>
 		given.Given(StateHolder.DefaultKey, state);
 
@@ -91,7 +105,25 @@ public static class GivenExtensions
 		return given.Given(x => transition(x).AsTask());
 	}
 
+	[OverloadResolutionPriority(1)]
+	public static Given<Target> Given<Target>(this Given<Target> given, Func<Target, CancellationToken, Task> transition)
+	{
+		ArgumentNullException.ThrowIfNull(transition);
+		return given.Given(x => transition(x, Runner.Token));
+	}
+
+	public static Given<Target> Given<Target>(this Given<Target> given, Func<Target, CancellationToken, ValueTask> transition)
+	{
+		ArgumentNullException.ThrowIfNull(transition);
+		return given.Given(x => transition(x, Runner.Token).AsTask());
+	}
+
 	public static Given<Target> And<Target>(this Given<Target> given, Action<Target> transition) => given.Given(transition);
+
+	[OverloadResolutionPriority(1)]
+	public static Given<Target> And<Target>(this Given<Target> given, Func<Target, CancellationToken, Task> transition) => given.Given(transition);
+
+	public static Given<Target> And<Target>(this Given<Target> given, Func<Target, CancellationToken, ValueTask> transition) => given.Given(transition);
 
 	[OverloadResolutionPriority(1)]
 	public static Given<Target> And<Target>(this Given<Target> given, Func<Target, Task> transition) => given.Given(transition);

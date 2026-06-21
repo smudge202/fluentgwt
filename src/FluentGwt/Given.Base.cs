@@ -11,6 +11,24 @@ public abstract record GivenBase<Target> : State<Target>
 
 	public When<Target> When(Func<Target, ValueTask> act) => new(this, Step.From(act));
 
+	[OverloadResolutionPriority(1)]
+	public When<Target> When(Func<Target, CancellationToken, Task> act) => new(this, Step.From(act));
+
+	public When<Target> When(Func<Target, CancellationToken, ValueTask> act) => new(this, Step.From(act));
+
+	[OverloadResolutionPriority(1)]
+	public When<Target, Result> When<Result>(Func<Target, CancellationToken, Task<Result>> act)
+	{
+		ArgumentNullException.ThrowIfNull(act);
+		return new(this, x => new ValueTask<Result>(act(x, Runner.Token)));
+	}
+
+	public When<Target, Result> When<Result>(Func<Target, CancellationToken, ValueTask<Result>> act)
+	{
+		ArgumentNullException.ThrowIfNull(act);
+		return new(this, x => act(x, Runner.Token));
+	}
+
 	public When<Target, Result> When<Result>(Func<Target, Result> act)
 	{
 		ArgumentNullException.ThrowIfNull(act);

@@ -78,4 +78,18 @@ public sealed partial class ServiceFixtureTests
 				.Then(_ => { }))
 			.WhenExecutingTheChainCapturingFailure()
 			.Then(x => x.Subject.Log.Should().Equal("arranged", "fixture"));
+
+	[Fact]
+	public Task WhenTeardownCallbackRunsThenItReceivesTheTestToken()
+		=> Context
+			.GivenChain(x => x.Subject
+				.Given(s => s.OnTeardown(token =>
+				{
+					x.Asserted = token;
+					return ValueTask.CompletedTask;
+				}))
+				.When(_ => { })
+				.Then(_ => { }))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be(TestContext.Current.CancellationToken));
 }

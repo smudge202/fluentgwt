@@ -6,4 +6,6 @@ namespace FluentGwt;
 public sealed class XunitTestRunnerAttribute : TestRunnerAttribute
 {
 	public override CancellationToken CancellationToken => TestContext.Current.CancellationToken;
+
+	public override string? TestIdentity => TestContext.Current.Test?.TestDisplayName;
 }

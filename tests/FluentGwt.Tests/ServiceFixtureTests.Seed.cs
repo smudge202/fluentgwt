@@ -66,8 +66,17 @@ public sealed partial class ServiceFixtureTests
 	public Task WhenTwoTestsShareASeedThenTheirTestIdsDiffer()
 		=> Context
 			.Given()
-			.When(_ => (new FirstSharedSeedFixture().TestId, new SecondSharedSeedFixture().TestId))
-			.Then(ids => ids.Item1.Should().NotBe(ids.Item2));
+			.When(_ => new DeclaredSeedFixture().TestId)
+			.Then(id => id.Should().Be("7l4jtr6yteto").And.NotBe(DeclaredSeedFixture.PinnedTestId));
+
+	[Theory]
+	[InlineData(1)]
+	[InlineData(2)]
+	public Task WhenTheoryRowsShareASeedThenTheirTestIdsDiffer(int row)
+		=> Context
+			.Given(row)
+			.When(_ => new DeclaredSeedFixture().TestId)
+			.Then(id => id.Should().Be(row == 1 ? "dgytjwl6ds3b" : "h7hop4qw7bsw"));
 
 	[Fact]
 	public Task WhenTestIdIsDerivedInSeparateProcessesThenItIsTheSame()

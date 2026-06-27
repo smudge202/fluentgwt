@@ -47,7 +47,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 
 	public FakeTimeProvider Time => _time.Value;
 
-	public string TestId => TestIdentity.Derive(Seed, GetType().FullName ?? GetType().Name);
+	public string TestId => TestIdentity.Derive(Seed, Runner.TestIdentity ?? GetType().FullName ?? GetType().Name);
 
 	public IConfiguration Configuration => _configuration.Root;
 

@@ -45,7 +45,7 @@ public sealed partial class ServiceFixtureTests
 	internal sealed class DeclaredSeedFixture : ServiceFixture
 	{
 		public const int DeclaredSeed = 20261008;
-		public const string PinnedTestId = "p3resjvtm2uq";
+		public const string PinnedTestId = "6zj7hwjxlavw";
 
 		protected override int? FixedSeed => DeclaredSeed;
 	}

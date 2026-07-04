@@ -129,4 +129,30 @@ public static class GivenExtensions
 	public static Given<Target> And<Target>(this Given<Target> given, Func<Target, Task> transition) => given.Given(transition);
 
 	public static Given<Target> And<Target>(this Given<Target> given, Func<Target, ValueTask> transition) => given.Given(transition);
+
+	[OverloadResolutionPriority(-1)]
+	public static Given<Target> Given<Target, Value>(this Target target, FixtureRow<Value> row) =>
+		target.Given().Given(row);
+
+	[OverloadResolutionPriority(-1)]
+	public static Given<Target> Given<Target, Value>(this Target target, FixtureRow<Value> row, Action<Target, Value> apply) =>
+		target.Given().Given(row, apply);
+
+	public static Given<Target> Given<Target, Value>(this Given<Target> given, FixtureRow<Value> row)
+	{
+		ArgumentNullException.ThrowIfNull(given);
+		ArgumentNullException.ThrowIfNull(row);
+		return given.Given(x =>
+		{
+			var value = row.Evaluate(x);
+			given.AddState(StateHolder.DefaultKey, () => value);
+		});
+	}
+
+	public static Given<Target> Given<Target, Value>(this Given<Target> given, FixtureRow<Value> row, Action<Target, Value> apply)
+	{
+		ArgumentNullException.ThrowIfNull(row);
+		ArgumentNullException.ThrowIfNull(apply);
+		return given.Given(x => apply(x, row.Evaluate(x)));
+	}
 }

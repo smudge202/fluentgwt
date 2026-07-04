@@ -998,13 +998,24 @@ unseeded randomness, so a failure on one run could not be reproduced on the next
 
 - Plain xunit v3 theory data works unchanged with chains: a theory parameter can be used inside any
   step.
-- `FixtureData<Fixture, Value>` is typed theory data whose rows are functions of the fixture, each
-  with a **label** used as the row's display name (a delegate otherwise displays as its type name).
-  The function is evaluated against the per-test fixture during phase 1, via
-  `Given(row)`, which stores the evaluated value as state (C2).
-- `Theories` providers that generate rows (exhaustive, boundary or random) draw randomness only
-  from a seed they are given explicitly — never from an unseeded generator — so generated rows are
-  identical on every enumeration. `FluentGwtSeed` (C14), when set, overrides that seed too.
+- `FixtureData<Fixture, Value>` (xunit package) is typed theory data whose rows are functions of the
+  fixture, each with a **label** used as the row's display name (a delegate otherwise displays as its
+  type name). Its rows are `FixtureRow<Value>` (core), written `FixtureRow<Value>.For<Fixture>(label,
+  x => ...)` when not built through `FixtureData`.
+  - **Why the row type does not name the fixture.** xunit requires theory methods and their
+    `MemberData` to be public, and the fixture is `internal`; a parameter or member typed
+    `FixtureRow<Fixture, Value>` would force it public. So the row is `FixtureRow<Value>`, the
+    data member is declared as `TheoryData<FixtureRow<Value>>` and returns a `FixtureData<Fixture,
+    Value>` (which checks every row against the fixture where it is written), and a row given to a
+    chain on another fixture type fails as an arrangement failure naming both types.
+  - The row is evaluated against the per-test fixture during phase 1, after the givens before it.
+    `Given(row)` stores the value as chain state; `Given(row, (x, value) => ...)` hands it to the
+    fixture, which is the form a one-line theory needs, since steps cannot yet read chain state
+    (C2's chain context is not built).
+- `TheoryRandom.Create(seed)` gives row generators a `System.Random` from an explicit seed — never
+  an unseeded generator — so generated rows are identical on every enumeration. `FluentGwtSeed`
+  (C14), when set, overrides that seed too; `TheoryRandom.Create(seed, configuration)` takes the
+  configuration explicitly.
 - Theory rows carry the row's identity into `TestId` (C14), so each row has its own identifier for
   isolated resources, even when rows share a seed.
 
@@ -1014,7 +1025,7 @@ unseeded randomness, so a failure on one run could not be reproduced on the next
 // OrderPlacementTests.Theories.cs
 public sealed partial class OrderPlacementTests
 {
-	public static FixtureData<Fixture, PlaceOrder> InvalidOrders => new()
+	public static TheoryData<FixtureRow<PlaceOrder>> InvalidOrders => new FixtureData<Fixture, PlaceOrder>
 	{
 		{ "zero quantity", x => x.Order with { Quantity = 0 } },
 		{ "unknown sku", x => x.Order with { Sku = x.Random.String2(13) } },
@@ -1024,11 +1035,11 @@ public sealed partial class OrderPlacementTests
 
 // OrderPlacementTests.cs
 [Theory, MemberData(nameof(InvalidOrders))]
-public Task WhenOrderIsInvalidThenItIsRejected(FixtureRow<Fixture, PlaceOrder> order)
+public Task WhenOrderIsInvalidThenItIsRejected(FixtureRow<PlaceOrder> order)
 	=> Context
 		.GivenDefaults()
-		.Given(order)
-		.WhenPlacingOrder(x => x.Order = x.Get<PlaceOrder>())
+		.Given(order, (x, invalid) => x.Order = invalid)
+		.WhenPlacingOrder()
 		.Then(x => x.Status.Should().Be(PlacementStatus.Invalid));
 ```
 
@@ -1892,7 +1903,7 @@ All in the root namespace `FluentGwt` (extension classes included, so a test fil
 reason)]`, `[Flags] enum IntegrationJustification` (`NetworkIo`, `DiskIo`, `UnsafeCode`,
 `MultipleThreads`, `ThreadSynchronisation`), the `buildTransitive` targets reading the MSBuild
 property `FluentGwtIntegration` and defining the `INTEGRATION` symbol, `FixtureData<Fixture, Value>`,
-`FixtureRow<Fixture, Value>`, the test-output log sink, test identity for `TestId`, and the
+`FixtureData` and its `FixtureRow<Value>` rows, the test-output log sink, test identity for `TestId`, and the
 `XunitTestRunnerAttribute` supplying the test token, and `IntegrationGate.IsOpen`, the static property the integration attributes skip unless.
 
 **Bogus package** — `ServiceFixture.Random`, `ServiceFixture.Fake` (seeded with `Seed`).

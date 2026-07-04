@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -186,12 +185,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 
 	private int ChooseSeed()
 	{
-		var forced = Configuration["FluentGwtSeed"];
-		if (string.IsNullOrWhiteSpace(forced))
-			return FixedSeed ?? RandomNumberGenerator.GetInt32(int.MaxValue);
-		return int.TryParse(forced, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seed)
-			? seed
-			: throw new InvalidOperationException($"FluentGwtSeed forces the seed and must be an integer, but was '{forced}'.");
+		return ForcedSeed.From(Configuration) ?? FixedSeed ?? RandomNumberGenerator.GetInt32(int.MaxValue);
 	}
 
 	private ServiceProvider Provider(Type resolving)

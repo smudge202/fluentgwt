@@ -32,6 +32,9 @@
 		<Compile Update="HostedServiceTests.*.cs">
 			<DependentUpon>HostedServiceTests.cs</DependentUpon>
 		</Compile>
+		<Compile Update="TheoryTests.*.cs">
+			<DependentUpon>TheoryTests.cs</DependentUpon>
+		</Compile>
 		<Compile Update="ChainTests.*.cs">
 			<DependentUpon>ChainTests.cs</DependentUpon>
 		</Compile>

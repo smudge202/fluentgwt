@@ -30,8 +30,14 @@ public static class HostedServiceCollectionExtensions
 	public static IServiceCollection RemoveApplicationHostedServices(this IServiceCollection services)
 	{
 		ArgumentNullException.ThrowIfNull(services);
-		foreach (var descriptor in HostedServices(services).Where(x => ImplementationOf(x) is { } type && !IsFramework(type)))
+		var hosted = HostedServices(services);
+		foreach (var descriptor in hosted.Where(x => ImplementationOf(x) is { } type && !IsFramework(type)))
 			services.Remove(descriptor);
+		var kept = hosted.Count(x => ImplementationOf(x) is null);
+		if (kept > 0)
+			Runner.Write(Runner.Output, kept == 1
+				? "FluentGwt: 1 hosted service factory registration has no knowable implementation and was kept."
+				: $"FluentGwt: {kept} hosted service factory registrations have no knowable implementation and were kept.");
 		return services;
 	}
 

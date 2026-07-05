@@ -57,6 +57,8 @@ dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.CA2007.severity = none
 
 [tests/**.cs]
+# Tests log fixed strings once; LoggerMessage delegates would be ceremony with nothing to cache.
+dotnet_diagnostic.CA1848.severity = none
 # Theory parameters must be public, and the types they carry belong to the test class that uses them.
 dotnet_diagnostic.CA1034.severity = none
 # Tests compare seeded sequences, which a cryptographic source cannot reproduce.

@@ -6,4 +6,6 @@ public abstract class TestRunnerAttribute : Attribute
 	public abstract CancellationToken CancellationToken { get; }
 
 	public abstract string? TestIdentity { get; }
+
+	public abstract Action<string>? Output { get; }
 }

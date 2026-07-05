@@ -8,7 +8,10 @@ internal static class Teardown
 	{
 		var execution = body();
 		await execution.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-		var failures = given.Current is ServiceFixture fixture ? await fixture.TearDown() : [];
+		var fixture = given.Current as ServiceFixture;
+		var failures = fixture is null ? [] : await fixture.TearDown();
+		if (fixture is not null && (failures.Count > 0 || !execution.IsCompletedSuccessfully))
+			fixture.ReportSeed();
 		if (failures.Count == 0 || execution.IsCompletedSuccessfully)
 		{
 			await execution;

@@ -1673,10 +1673,13 @@ parallel execution.
 
 - Logs from the fixture container and from every host go to the current test's output (xunit's
   `TestContext.Current.TestOutputHelper`), prefixed with the host name.
-- Minimum level: `Warning`, or `Debug` when a debugger is attached; configurable through
-  configuration (C11).
-- `x.Logs` (backed by the platform's fake logger collector) exposes captured records for
-  assertions.
+- Minimum level for the output: `Warning`, or `Debug` when a debugger is attached; the
+  configuration key `FluentGwt:LogLevel` (C11) overrides it with any `LogLevel` name.
+- `x.Logs` is a `FakeLogCollector` capturing **every** level for assertions, whatever the output
+  level.
+- The fixture captures the test's output writer when it is created, so work the test started in
+  the background still writes to that test, and parallel tests never share output. A line written
+  after the test has finished has no test to belong to and is dropped.
 - The library's own diagnostics — the seed of a failed test, container validation failures,
   teardown failures — go to the same output.
 

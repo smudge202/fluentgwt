@@ -1,9 +1,12 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Testing;
 using Microsoft.Extensions.Time.Testing;
 
 namespace FluentGwt;
@@ -19,7 +22,10 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly List<IHostedService> _started = [];
 	private readonly Lazy<int> _seed;
 	private readonly Lazy<FakeTimeProvider> _time;
+	private readonly Action<string>? _output = Runner.Output;
 	private ServiceProvider? _provider;
+	private string _seedOrigin = "fresh";
+	private bool _composed;
 	private bool _validateOnBuild = true;
 	private bool _validateScopes = true;
 
@@ -51,6 +57,8 @@ public abstract class ServiceFixture : IAsyncDisposable
 	public IConfiguration Configuration => _configuration.Root;
 
 	public CancellationToken Cancellation => _cancellation.Token;
+
+	public FakeLogCollector Logs { get; } = new();
 
 	public bool IntegrationEnabled => GetType().Assembly.IsDefined(typeof(IntegrationEnabledAttribute), inherit: false);
 
@@ -94,13 +102,13 @@ public abstract class ServiceFixture : IAsyncDisposable
 		{
 			return Provider(typeof(Service)).GetService<Service>() is not null;
 		}
-		catch (InvalidOperationException)
+		catch (InvalidOperationException failure)
 		{
-			return false;
+			return NotResolvable<Service>(failure);
 		}
-		catch (AggregateException)
+		catch (AggregateException failure)
 		{
-			return false;
+			return NotResolvable<Service>(failure);
 		}
 	}
 
@@ -121,6 +129,14 @@ public abstract class ServiceFixture : IAsyncDisposable
 	}
 
 	internal void ChooseSeedNow() => _ = Seed;
+
+	internal void ReportSeed()
+	{
+		if (_seed.IsValueCreated)
+			Write($"FluentGwt seed: {Seed} ({_seedOrigin}; replay with FluentGwtSeed={Seed})");
+	}
+
+	internal void Write(string line) => Runner.Write(_output, line);
 
 	internal async Task StartHostedServices()
 	{
@@ -163,6 +179,8 @@ public abstract class ServiceFixture : IAsyncDisposable
 			await Collecting(failures, () => _provider.DisposeAsync());
 		await Collecting(failures, DisposeFixture);
 		_cancellation.Dispose();
+		foreach (var failure in failures)
+			Write($"FluentGwt teardown failure: {failure}");
 		return failures;
 	}
 
@@ -185,16 +203,45 @@ public abstract class ServiceFixture : IAsyncDisposable
 
 	private int ChooseSeed()
 	{
-		return ForcedSeed.From(Configuration) ?? FixedSeed ?? RandomNumberGenerator.GetInt32(int.MaxValue);
+		if (ForcedSeed.From(Configuration) is { } forced)
+		{
+			_seedOrigin = "forced";
+			return forced;
+		}
+		if (FixedSeed is { } declared)
+		{
+			_seedOrigin = "declared";
+			return declared;
+		}
+		return RandomNumberGenerator.GetInt32(int.MaxValue);
 	}
+
+	private bool NotResolvable<Service>(Exception failure)
+	{
+		Write($"FluentGwt: {typeof(Service).Name} is not resolvable. {failure.Message}");
+		return false;
+	}
+
+	private LogLevel OutputLevel() =>
+		Enum.TryParse<LogLevel>(Configuration["FluentGwt:LogLevel"], ignoreCase: true, out var configured)
+			? configured
+			: Debugger.IsAttached ? LogLevel.Debug : LogLevel.Warning;
 
 	private ServiceProvider Provider(Type resolving)
 	{
 		lock (_lock)
 		{
 			_resolved.Add(resolving);
-			_services.TryAddSingleton(Configuration);
-			_services.TryAddSingleton<TimeProvider>(Time);
+			if (!_composed)
+			{
+				_services.TryAddSingleton(Configuration);
+				_services.TryAddSingleton<TimeProvider>(Time);
+				_services.AddLogging(logging => logging
+					.SetMinimumLevel(LogLevel.Trace)
+					.AddProvider(new FakeLoggerProvider(Logs))
+					.AddProvider(new TestOutputLoggerProvider(Write, OutputLevel())));
+				_composed = true;
+			}
 			return _provider ??= _services.BuildServiceProvider(new ServiceProviderOptions
 			{
 				ValidateOnBuild = _validateOnBuild,

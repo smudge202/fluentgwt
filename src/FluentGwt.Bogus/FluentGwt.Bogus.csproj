@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<AssemblyName>FluentGwt.Bogus</AssemblyName>
+		<RootNamespace>FluentGwt</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Bogus" Version="35.6.5" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" />
+	</ItemGroup>
+
+</Project>

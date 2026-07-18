@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<AssemblyName>FluentGwt.Moq</AssemblyName>
+		<RootNamespace>FluentGwt</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Moq" Version="4.21.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" />
+	</ItemGroup>
+
+</Project>

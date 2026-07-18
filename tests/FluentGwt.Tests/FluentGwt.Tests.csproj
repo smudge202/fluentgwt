@@ -14,6 +14,8 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Bogus\FluentGwt.Bogus.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Moq\FluentGwt.Moq.csproj" />
 		<ProjectReference Include="..\..\src\FluentGwt.Xunit\FluentGwt.Xunit.csproj" />
 		<ProjectReference Include="..\FluentGwt.Tests.Integrated\FluentGwt.Tests.Integrated.csproj" />
 	</ItemGroup>

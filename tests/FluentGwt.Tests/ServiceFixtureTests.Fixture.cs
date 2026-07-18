@@ -21,6 +21,7 @@ public sealed partial class ServiceFixtureTests
 		public Exception TeardownFailure { get; } = new InvalidOperationException("Teardown failure");
 		public object? Asserted { get; set; }
 		public IDisposable? Fired { get; set; }
+		public Moq.Mock<Warehouse>? Stub { get; set; }
 	}
 
 	internal sealed class SubjectFixture : ServiceFixture

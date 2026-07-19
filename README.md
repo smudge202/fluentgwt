@@ -112,13 +112,75 @@ Derive the fixture from `ServiceFixture` to compose and resolve through a real c
 - `Services.Override(...)` replaces **every** registration of a service, not just the last — so
   `IEnumerable<Service>` holds only the override. Type and factory overrides keep the original's
   lifetime; keyed overrides touch only their key.
-- At the end of the chain the provider is disposed, then the fixture's `DisposeFixture()` runs,
-  whether the test passed or failed.
+- `.Deferred()` after a Given runs it after every immediate Given, so a Given that resolves can sit
+  anywhere without locking out registrations written after it.
+- `OnTeardown(token => ...)` registers cleanup, run in reverse order at the end of the chain on
+  every path. `Cancellation` is signalled first, so background work can stop. A teardown failure
+  never hides the test's own: both together arrive as one `AggregateException`, the test's first.
+- `Configuration` reads `appsettings.json`, `appsettings.{environment}.json`, user secrets and
+  environment variables; `Configure(key, value)` overrides a value for this fixture only.
+- `Time` is a `FakeTimeProvider` registered as `TimeProvider`; `Time.Advance(...)` moves it.
+- `Logs` captures every log record for assertions; warnings and above also go to the test output
+  (`FluentGwt:LogLevel` changes that).
+
+### Seeds and test data
+
+Every fixture has a `Seed`: fresh each run, fixed by overriding `FixedSeed`, or forced by setting
+`FluentGwtSeed` in configuration. A failing test writes its seed to the test output —
+`FluentGwt seed: 1234567 (fresh; replay with FluentGwtSeed=1234567)` — so the failure can be
+replayed. `TestId` is a short identifier derived from the seed and the test, for naming isolated
+resources such as a scratch database.
+
+With **FluentGwt.Bogus**, `x.Fake` and `x.Random` generate data from that seed (locale `en_GB`,
+or `FluentGwt:Locale`). They are extension properties, so inside the fixture class itself they
+are reached as `this.Fake`.
+
+## Packages
+
+| Package | Adds |
+|---|---|
+| `FluentGwt` | the chain, `ServiceFixture`, overrides, configuration, seeds, time, logging |
+| `FluentGwt.Xunit` | the test's cancellation token and identity, integration gating, `FixtureData`, test output |
+| `FluentGwt.Bogus` | `x.Fake` and `x.Random` |
+| `FluentGwt.Moq` | `Services.Stub<Service>()`, a `Mock<Service>` that replaces every registration |
+
+### Integration tests
+
+`csharp
+[IntegrationFact(IntegrationJustification.NetworkIo, "Publishes to the real message bus")]
+public Task WhenOrderIsPublishedThenDispatchConsumesIt() => ...
+`
+
+An integration test says what makes it one and why. It is reported as skipped unless the test
+project is built with `-p:FluentGwtIntegration=true`, which also defines `INTEGRATION` for code
+that only an integration build can compile. In an integration build, a `ServiceFixture`'s hosted
+services start before the act and stop at teardown.
+
+### Theory data from the fixture
+
+`csharp
+public static TheoryData<FixtureRow<PlaceOrder>> InvalidOrders => new FixtureData<Fixture, PlaceOrder>
+{
+	{ "zero quantity", x => x.Order with { Quantity = 0 } },
+	{ "negative quantity", x => x.Order with { Quantity = -1 } },
+};
+
+[Theory, MemberData(nameof(InvalidOrders))]
+public Task WhenOrderIsInvalidThenItIsRejected(FixtureRow<PlaceOrder> order)
+	=> Context
+		.GivenOrdering()
+		.Given(order, (x, invalid) => x.Order = invalid)
+		.WhenPlacingOrder()
+		.Then(result => result.Status.Should().Be(PlacementStatus.Invalid));
+`
+
+Rows display by label and are evaluated against the test's own fixture.
 
 ## Building
 
 ```
 dotnet test --solution FluentGwt.slnx
+dotnet test --solution FluentGwt.slnx -p:FluentGwtIntegration=true
 ```
 
 xunit v3 on Microsoft.Testing.Platform, opted into by the root `global.json`.

@@ -1212,7 +1212,12 @@ Client-library suites set a handler hook on the client's options to return a mal
   `HttpMessageHandler`, or a test host (C21).
 - Every redirected request is recorded; `x.Http.Requests` exposes them for assertions.
 - An unmatched request (a responder returning null) fails the test with the request line in the
-  message rather than reaching the network.
+  message rather than reaching the network. It does so by throwing from the handler, so a product
+  that swallows its outbound failures also swallows this one; the recorded requests still show it.
+- Redirection is applied as a post-configuration of the factory's options, so it wins over a primary
+  handler the product sets in its own composition, whichever is registered first.
+- A stub handler given to `Via` is called without being owned: the factory's handler rotation never
+  disposes it.
 
 ### Example
 

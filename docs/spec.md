@@ -53,6 +53,7 @@ The implementer works from this document alone.
 31. [Package split](#31-package-split)
 32. [Build order](#32-build-order)
 33. [Rulings, 2026-10-08](#33-rulings-2026-10-08)
+34. [Delivery: CI, branching, versioning and publishing](#34-delivery-ci-branching-versioning-and-publishing)
 
 ---
 
@@ -2041,6 +2042,11 @@ Dependency order only; no ranking beyond that.
     replay of C12's hosted-service removals), **C19**, **C20**, **C21**, **C22** (entry-point hosts
     only).
 13. **Analysers package** — **C25** (needs the chain types and `TestHost` to analyse against).
+14. **Package metadata and reproducible builds** — **D1**.
+15. **Continuous integration** — **D2** (needs D1 to pack in CI).
+16. **Branching model and protection** — **D3** (needs D2's checks to require).
+17. **Versioning and publishing from main** — **D4** (needs D1–D3).
+18. **README badges** — **D5** (needs D2 and D4 to point at).
 
 ---
 
@@ -2077,3 +2083,154 @@ the record and marked; the sections follow the later ruling.
 ### Open questions
 
 None.
+
+---
+
+## 34. Delivery: CI, branching, versioning and publishing
+
+Added 2026-10-08 at the owner's request. These are delivery steps rather than library capabilities,
+numbered D1–D5 and placed after C25 in the build order (§32, steps 14–18). They follow the same
+pattern: what problem each solves, what is done, and how it is checked. Where a check can be a test
+it is one; where it is a repository setting, the check is a command whose output proves it.
+
+**Who does what.** The repository is public and the owner's standing instruction is that nothing is
+pushed or published without asking. So every step that changes GitHub settings, creates a branch on
+the remote, stores a secret or publishes a package is marked **(owner)**: it is either performed by
+the owner or performed only after the owner approves that specific action. The local `gh` CLI is
+signed in as the ATG account, which must not be used for this repository; anything done through
+`gh` needs the owner's own account.
+
+### D1 — Package metadata and reproducible builds
+
+**Problem.** A package with no licence expression, readme, repository link or symbols is hard to
+trust and hard to debug into, and a build that embeds local paths is not reproducible.
+
+**Done.**
+- A `src/Directory.Build.props` gives every library project: `PackageId` (its `AssemblyName`),
+  `Authors`, a per-package `Description` and `PackageTags`, `PackageLicenseExpression` `Apache-2.0`
+  (the repository's `LICENSE`), `PackageProjectUrl` and `RepositoryUrl`
+  (`https://github.com/smudge202/fluentgwt`), `PackageReadmeFile` with the README packed in,
+  `IncludeSymbols` with `SymbolPackageFormat` `snupkg`, `PublishRepositoryUrl`,
+  `EmbedUntrackedSources`, and `ContinuousIntegrationBuild` when `GITHUB_ACTIONS` is set. Source
+  Link for GitHub ships with the .NET SDK and needs no package.
+- Test and helper projects are `IsPackable=false`.
+- The xunit package keeps its `buildTransitive` targets (C12).
+
+**Checked by** an integration test in the style of the C12 build-target tests:
+- `WhenLibraryIsPackedThenEveryPackageCarriesLicenceReadmeRepositoryAndSymbols` — packs the solution
+  to a temp folder and reads each `.nuspec`: licence expression, readme, repository URL and commit,
+  and a matching `.snupkg`.
+- `WhenTestProjectsArePackedThenNothingIsProduced`.
+
+### D2 — Continuous integration
+
+**Problem.** Tests that only run on the owner's machine protect nothing once there are pull
+requests, and the integration build (C12) is the one most likely to be skipped by hand.
+
+**Done.** `.github/workflows/ci.yml`:
+- Runs on pull requests into `develop` and `main`, and on pushes to `develop`, `main` and `v*` tags.
+- Jobs on `ubuntu-latest` and `windows-latest` (see OQ26): `actions/setup-dotnet` from
+  `global.json`; `dotnet format --verify-no-changes`; `dotnet build -warnaserror`;
+  `dotnet test --solution FluentGwt.slnx` (the default build); and
+  `dotnet test --solution FluentGwt.slnx -p:FluentGwtIntegration=true` (the integration build,
+  which needs network for the transitive-package test).
+- Test results as TRX (`Microsoft.Testing.Extensions.TrxReport`) uploaded as an artefact, and a step
+  that fails the job if a test project ran zero tests — the "solution omits its test project" trap.
+- `permissions: contents: read`; third-party actions pinned to a commit SHA, not a tag; a
+  `concurrency` group that cancels superseded runs on the same pull request.
+- Dependency updates for NuGet packages and pinned actions (see OQ24), each arriving as a pull
+  request that CI must pass.
+
+**Checked by** the workflow running green on the first pull request, with each job's test count in
+its log, and by a deliberately failing commit on a throwaway branch turning it red (then deleted).
+
+### D3 — Branching model and protection (owner)
+
+**Problem.** Without protection a direct push to `main` can publish an untested package (D4), and
+without a model there is no place for unreleased work to collect.
+
+**Done.** Gitflow:
+
+| Branch | Purpose | Created from | Merges into |
+|---|---|---|---|
+| `main` | released code; every commit on it is a published version | — | — |
+| `develop` | integration; the repository's **default** branch | `main` | `release/*` |
+| `feature/*` | one capability or change | `develop` | `develop`, by pull request |
+| `release/x.y.z` | stabilising a version | `develop` | `main`, then back into `develop` |
+| `hotfix/x.y.z` | an urgent fix to a release | `main` | `main`, then back into `develop` |
+
+The current `clean-room-rebuild` branch becomes the first feature branch: `develop` is created from
+`main`, and the rebuild arrives in it by pull request **(owner)**.
+
+Branch protection, as GitHub rulesets on `main` and `develop` **(owner)**:
+- pull request required, no direct pushes;
+- required status checks: every D2 job, and the branch up to date before merging;
+- no force pushes, no deletion;
+- signed commits required (local commits are signed; merges made in the GitHub UI are signed by
+  GitHub);
+- required approvals **0** while the owner is the only maintainer, since GitHub does not let an
+  author approve their own pull request; raise to 1 when a second maintainer exists.
+
+A tag ruleset restricts creating `v*` tags to the owner, since a tag is what publishes (D4).
+
+**Checked by** `gh api repos/smudge202/fluentgwt/rulesets` listing the rulesets, and a direct push
+to `develop` being refused.
+
+### D4 — Versioning and publishing from main (owner approves each publish)
+
+**Problem.** Versions typed by hand drift from what was released; a publish that can run from any
+branch can release untested code; a re-publish of an existing version is rejected late or silently
+ignored.
+
+**Done.**
+- **Versions come from tags** (see OQ22): a `vX.Y.Z` tag on `main` is version `X.Y.Z`; every other
+  commit builds as a prerelease of the next version, so a local or CI build never claims a released
+  number.
+- `.github/workflows/publish.yml` runs on a pushed `v*` tag and:
+  1. fails unless the tagged commit is on `main` (`git merge-base --is-ancestor`);
+  2. runs the D2 build and both test runs again on that exact commit;
+  3. packs in `Release`;
+  4. **fails if any package's version already exists on nuget.org** — checked before pushing anything,
+     so a release is all packages or none;
+  5. pushes every `.nupkg` and `.snupkg` to nuget.org through **Trusted Publishing** (OIDC; see OQ25),
+     so no long-lived API key is stored;
+  6. creates a GitHub release for the tag with the packages attached.
+- The publish job runs in a GitHub **environment** named `nuget` with the owner as required reviewer,
+  so every publish waits for the owner's approval even after the tag is pushed.
+- Releasing is therefore: merge `release/x.y.z` into `main` → tag `vx.y.z` on `main` → approve the
+  `nuget` environment.
+
+**Checked by** a dry run: the workflow on a tag in a fork or with the push step disabled, showing
+the version derived, the existence check passing, and the packages it would push.
+
+### D5 — README badges
+
+**Problem.** A reader should see at a glance whether the build is green, what the current version
+is and what the licence is.
+
+**Done.** A badge row at the top of the README:
+- CI status for `develop` and for `main` (the D2 workflow's badge);
+- nuget.org version for each package (`FluentGwt`, `.Xunit`, `.AspNetCore`, `.Http`, `.Moq`,
+  `.Bogus`, `.Analysers`), and total downloads for `FluentGwt`;
+- licence (Apache-2.0) and target framework (.NET 10).
+
+Badges for packages that are not yet published are added with the first publish, not before — a
+badge reading "not found" is worse than none.
+
+**Checked by** every badge resolving once D2 and D4 have run.
+
+### Open questions for delivery
+
+22. **Versioning tool.** MinVer (tags only; recommended — gitflow puts the version decision on the
+    release branch's tag, which is exactly what MinVer reads) or GitVersion (derives versions from
+    branch names; more configuration, more to drift)?
+23. **Prereleases.** Should `develop` publish prereleases (`x.y.z-alpha.N`) somewhere — nuget.org,
+    GitHub Packages — or nothing until a release?
+24. **Dependency updates.** Dependabot (built into GitHub; recommended for a public repository) or
+    Renovate (which the owner runs for the lab)?
+25. **Publishing credential.** nuget.org Trusted Publishing (recommended; nothing to leak or rotate)
+    or an API key stored as a repository secret?
+26. **Windows in CI.** The owner develops on Windows and the build-target tests shell out to
+    `dotnet`; is a Windows job wanted alongside Linux, at roughly double the CI minutes?
+27. **Package ID prefix.** Apply to nuget.org to reserve the `FluentGwt` ID prefix, so nobody else
+    can publish `FluentGwt.*` packages? Recommended; it requires the first package published first.

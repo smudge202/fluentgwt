@@ -20,6 +20,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly CancellationTokenSource _cancellation = CancellationTokenSource.CreateLinkedTokenSource(Runner.Token);
 	private readonly TestConfiguration _configuration;
 	private readonly List<IHostedService> _started = [];
+	private readonly List<FixtureHost> _hosts = [];
 	private readonly Lazy<int> _seed;
 	private readonly Lazy<FakeTimeProvider> _time;
 	private readonly Action<string>? _output = Runner.Output;
@@ -114,6 +115,13 @@ public abstract class ServiceFixture : IAsyncDisposable
 
 	public void Configure(string key, string? value) => _configuration.Set(key, value);
 
+	public void Attach(FixtureHost host)
+	{
+		ArgumentNullException.ThrowIfNull(host);
+		lock (_lock)
+			_hosts.Add(host);
+	}
+
 	public void OnTeardown(Func<CancellationToken, ValueTask> callback)
 	{
 		ArgumentNullException.ThrowIfNull(callback);
@@ -137,6 +145,15 @@ public abstract class ServiceFixture : IAsyncDisposable
 	}
 
 	internal void Write(string line) => Runner.Write(_output, line);
+
+	internal async Task StartHosts()
+	{
+		List<FixtureHost> hosts;
+		lock (_lock)
+			hosts = [.. _hosts];
+		foreach (var host in hosts)
+			await host.Start(Runner.Token);
+	}
 
 	internal async Task StartHostedServices()
 	{
@@ -175,6 +192,15 @@ public abstract class ServiceFixture : IAsyncDisposable
 		callbacks.Reverse();
 		foreach (var callback in callbacks)
 			await Collecting(failures, () => callback(Runner.Token));
+		List<FixtureHost> hosts;
+		lock (_lock)
+		{
+			hosts = [.. _hosts];
+			_hosts.Clear();
+		}
+		hosts.Reverse();
+		foreach (var host in hosts)
+			await Collecting(failures, host.DisposeAsync);
 		if (_provider is not null)
 			await Collecting(failures, () => _provider.DisposeAsync());
 		await Collecting(failures, DisposeFixture);

@@ -21,13 +21,14 @@ internal sealed class Transitions<Target>
 		}
 	}
 
-	public IReadOnlyList<Func<Target, Task>> TakeInRunOrder()
+	public (IReadOnlyList<Func<Target, Task>> Immediate, IReadOnlyList<Func<Target, Task>> Deferred) Take()
 	{
 		lock (_lock)
 		{
-			var ordered = _transitions.Where(x => !x.Deferred).Concat(_transitions.Where(x => x.Deferred)).Select(x => x.Run).ToList();
+			var immediate = _transitions.Where(x => !x.Deferred).Select(x => x.Run).ToList();
+			var deferred = _transitions.Where(x => x.Deferred).Select(x => x.Run).ToList();
 			_transitions.Clear();
-			return ordered;
+			return (immediate, deferred);
 		}
 	}
 }

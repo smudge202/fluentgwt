@@ -20,9 +20,15 @@ public abstract record State<Target> : StateHolder
 	internal async Task<Target> Arrange()
 	{
 		var target = Subject();
-		foreach (var transition in Transitions.TakeInRunOrder())
+		var fixture = target as ServiceFixture;
+		var (immediate, deferred) = Transitions.Take();
+		foreach (var transition in immediate)
 			await transition(target);
-		if (target is ServiceFixture fixture)
+		if (fixture is not null)
+			await fixture.StartHosts();
+		foreach (var transition in deferred)
+			await transition(target);
+		if (fixture is not null)
 		{
 			fixture.ChooseSeedNow();
 			await fixture.StartHostedServices();

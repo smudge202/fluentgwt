@@ -15,11 +15,13 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.AspNetCore\FluentGwt.AspNetCore.csproj" />
 		<ProjectReference Include="..\..\src\FluentGwt.Bogus\FluentGwt.Bogus.csproj" />
 		<ProjectReference Include="..\..\src\FluentGwt.Http\FluentGwt.Http.csproj" />
 		<ProjectReference Include="..\..\src\FluentGwt.Moq\FluentGwt.Moq.csproj" />
 		<ProjectReference Include="..\..\src\FluentGwt.Xunit\FluentGwt.Xunit.csproj" />
 		<ProjectReference Include="..\FluentGwt.Tests.Integrated\FluentGwt.Tests.Integrated.csproj" />
+		<ProjectReference Include="..\FluentGwt.Tests.Web\FluentGwt.Tests.Web.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -44,6 +46,9 @@
 		</Compile>
 		<Compile Update="HttpTests.*.cs">
 			<DependentUpon>HttpTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="TestHostTests.*.cs">
+			<DependentUpon>TestHostTests.cs</DependentUpon>
 		</Compile>
 		<Compile Update="ChainTests.*.cs">
 			<DependentUpon>ChainTests.cs</DependentUpon>

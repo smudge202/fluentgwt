@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/FluentGwt.AspNetCore/FluentGwt.AspNetCore.csproj" />
     <Project Path="src/FluentGwt.Bogus/FluentGwt.Bogus.csproj" />
     <Project Path="src/FluentGwt.Http/FluentGwt.Http.csproj" />
     <Project Path="src/FluentGwt.Moq/FluentGwt.Moq.csproj" />
@@ -8,6 +9,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/FluentGwt.Tests.Integrated/FluentGwt.Tests.Integrated.csproj" />
+    <Project Path="tests/FluentGwt.Tests.Web/FluentGwt.Tests.Web.csproj" />
     <Project Path="tests/FluentGwt.Tests/FluentGwt.Tests.csproj" />
   </Folder>
 </Solution>

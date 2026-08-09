@@ -165,12 +165,12 @@ after it — is awaited or converted to the `Task` a test method returns.
 | # | Phase | What runs |
 |---|---|---|
 | 1 | Immediate givens | Every given not marked deferred, in declaration order. State givens and transition givens interleave in the order written. |
-| 2 | Host start | Every test host configured by the chain (C17), built and started completely in declaration order — the application's own hosted services included, whether or not integration is enabled, less any the test removed in arrangement (C12). |
+| 2 | Host start | Every `FixtureHost` attached to the fixture (C17), started in attach order. An `ApplicationHost` attaches itself when it is created, and starts completely — the application's own hosted services included, whether or not integration is enabled, less any the test removed in arrangement (C12). |
 | 3 | Deferred givens | Every deferred given, in the order it was deferred. |
 | 4 | Integration start | Only when the test assembly carries the integration marker (C12): every `IHostedService` in the fixture container, started in registration order. |
 | 5 | Act | The When step and any `And` act steps, in order. Exactly once. |
 | 6 | Assert | Every Then and `And` assertion, in order. |
-| 7 | Teardown | Always, whether phases 1–6 succeeded or not: hosted services stopped in reverse order; teardown callbacks (C10) in reverse registration order; hosts stopped and disposed in reverse start order; the fixture container's provider disposed; the fixture disposed. |
+| 7 | Teardown | Always, whether phases 1–6 succeeded or not: hosted services stopped in reverse order; teardown callbacks (C10) in reverse registration order; attached hosts disposed in reverse attach order; the fixture container's provider disposed; the fixture disposed. |
 
 **Failure attribution.** A failure in phases 1–4 fails the test as an *arrangement* failure and is
 never treated as the act's exception — an exception expectation (C6) cannot be satisfied by a
@@ -866,9 +866,10 @@ the choice belongs to the build: it is visible in the command that produced the 
   marker has no effect on hosts. A host's hosted-service start failure is a host start failure
   (C17).
 - **Removing hosted services** (core) — extension methods on `IServiceCollection`, so they work on
-  the fixture's `Services` (keeping a service out of phase 4) and on `host.Services` (keeping it
-  out of a host). On `host.Services` they are recorded and replayed onto the application's
-  container after its own composition, in order with the test's other host overrides (C18).
+  the fixture's `Services` (keeping a service out of phase 4) and inside a host's
+  `ConfigureServices` callback (keeping it out of a host). The callback runs against the
+  application's real collection after its own composition (C18), so a removal there sees every
+  registration the application made.
   - `RemoveHostedService<Implementation>()` and `RemoveHostedService(Type)` remove every
     `IHostedService` registration whose implementation is exactly that type. A registration's
     **implementation** is:
@@ -892,8 +893,8 @@ the choice belongs to the build: it is visible in the command that produced the 
     knowable implementation is kept, and written to the test output (C23). A framework hosted
     service the application opted into itself (a health-check publisher, say) is kept too; a test
     that does not want it names it with `RemoveHostedService(Type)`.
-  - Removal is a point in the sequence: a hosted service registered after it — by the test, through
-    `host.Services` — is kept.
+  - Removal is a point in the sequence: a hosted service registered after it — by the test, later
+    in the same `ConfigureServices` callback or in a later one — is kept.
 
 ### Example
 
@@ -928,10 +929,10 @@ A host-level test that does not want the application's background work running:
 
 ```csharp
 public static Given<Fixture> GivenNoOutboxRelay(this Given<Fixture> given)
-	=> given.Given(x => x.Api.Services.RemoveHostedService<OutboxRelay>());
+	=> given.Given(x => x.Api.ConfigureServices(services => services.RemoveHostedService<OutboxRelay>()));
 
 public static Given<Fixture> GivenNoBackgroundWork(this Given<Fixture> given)
-	=> given.Given(x => x.Api.Services.RemoveApplicationHostedServices());
+	=> given.Given(x => x.Api.ConfigureServices(services => services.RemoveApplicationHostedServices()));
 ```
 
 ### Acceptance criteria
@@ -956,8 +957,8 @@ public static Given<Fixture> GivenNoBackgroundWork(this Given<Fixture> given)
 - `WhenHostedServiceFailsToStartThenTestFailsAsArrangement`
 - `WhenHostedServiceStartsThenItReceivesTheTestToken`
 - `WhenLifecycleServiceIsRegisteredThenAllLifecycleCallsAreMade`
-- `WhenMarkerIsAbsentThenTestHostStartsApplicationHostedServices`
-- `WhenMarkerIsPresentThenTestHostStartsApplicationHostedServices`
+- `WhenMarkerIsAbsentThenApplicationHostStartsApplicationHostedServices`
+- `WhenMarkerIsPresentThenApplicationHostStartsApplicationHostedServices`
 - `WhenHostedServiceIsRemovedByTypeThenItDoesNotStart`
 - `WhenHostedServiceIsRegisteredAsInstanceThenRemovalByTypeRemovesIt`
 - `WhenHostedServiceIsRegisteredByTypedFactoryThenRemovalByTypeRemovesIt`
@@ -967,7 +968,7 @@ public static Given<Fixture> GivenNoBackgroundWork(this Given<Fixture> given)
 - `WhenRemovalMatchesNothingThenMessageCountsUnknowableFactories`
 - `WhenHostedServiceIsRemovedFromFixtureServicesThenPhaseFourDoesNotStartIt`
 - `WhenApplicationHostedServicesAreRemovedThenFrameworkHostedServicesAreKept`
-- `WhenApplicationHostedServicesAreRemovedThenTestHostStillServesRequests`
+- `WhenApplicationHostedServicesAreRemovedThenApplicationHostStillServesRequests`
 - `WhenApplicationHostedServicesAreRemovedThenUnknowableFactoriesAreKeptAndWritten`
 - `WhenTestAddsHostedServiceAfterRemovalThenItIsKept`
 
@@ -1271,32 +1272,63 @@ can host one area of an API).
 
 ### Behaviour (AspNetCore package)
 
-- `x.Host<EntryPoint>()` declares a host for the product's entry point (backed by
-  `WebApplicationFactory<EntryPoint>`).
-- `x.Host(name, compose)` declares a test-composed host: `compose` receives a
-  `WebApplicationBuilder` and returns the configured `WebApplication` (the `XTests.Startup.cs`
-  file).
-- Several hosts may be declared per fixture, by name; each is independent.
-- **One host per test.** A host belongs to the fixture that declared it and lives for that one
+- **The host type is `ApplicationHost`.** It is not called `TestHost` because that name collides
+  with the `Microsoft.AspNetCore.TestHost` namespace (CA1724), which host suites commonly import.
+- **Hosts are created with the fixture passed in**, not through a fixture method:
+  - `ApplicationHost.For<EntryPoint>(fixture)` creates a host for the product's entry point
+    (backed by `WebApplicationFactory<EntryPoint>`).
+  - `ApplicationHost.Composed(fixture, name, services, pipeline)` creates a test-composed host
+    from two delegates (the `XTests.Startup.cs` file): `Action<WebApplicationBuilder> services`
+    composes the application's services, and `Action<WebApplication> pipeline` maps its pipeline
+    after `Build()`. Two delegates rather than one that builds and returns the application, because
+    the test's service overrides (C18) must run after the application's registrations but before
+    `Build()`, and the pipeline insertion point (C18) sits between `Build()` and the pipeline
+    delegate — neither point exists inside a single delegate that calls `Build()` itself.
+  - The typical declaration is a get-only property assigned in the fixture's constructor:
+    `public ApplicationHost Api { get; }` and `public Fixture() { Api = ApplicationHost.For<Program>(this); }`.
+  - **Why not `x.Host<EntryPoint>()`:** a member another package adds to `ServiceFixture` is an
+    extension, and calling an extension from inside the fixture class needs `this.`, which the
+    conventions forbid. Passing `this` as an argument is ordinary.
+- **The core contract is `FixtureHost`.** Core defines a public `FixtureHost` interface —
+  `ValueTask Start(CancellationToken)` plus `IAsyncDisposable` — and `ServiceFixture.Attach(FixtureHost)`.
+  An `ApplicationHost` attaches itself to the fixture it is given. Attached hosts are **started in
+  phase 2** (after the immediate givens, before the deferred ones) in attach order, and **disposed
+  in phase 7** in reverse attach order, after the teardown callbacks (C10) and before the fixture
+  container's provider. `Attach` is synchronous and the library never blocks on async work, so a
+  host attached after phase 2 (in a deferred given, say) is not started by the fixture; an
+  `ApplicationHost` starts itself on first use instead — `CreateClient()`, `Services` or `Address`.
+- Several hosts may be created per fixture, each with its own name; each is independent.
+- **One host per test.** A host belongs to the fixture it was created with and lives for that one
   test; hosts are never shared across tests or across a class, and the library offers no
   class-shared host.
 - A host starts **completely**, as the application would in production: the application's own
   hosted services start with it, whether or not integration is enabled. A test that does not want
-  one running removes it in arrangement with `host.Services.RemoveHostedService<Implementation>()`
-  or `host.Services.RemoveApplicationHostedServices()` (C12).
-- Hosts are **built and started in phase 2**, after every immediate given, so overrides (C18)
-  written anywhere in the chain apply. After start, further host overrides throw, mirroring C1.
+  one running removes it in arrangement with
+  `host.ConfigureServices(services => services.RemoveHostedService<Implementation>())` or
+  `services.RemoveApplicationHostedServices()` in the same callback (C12).
+- Hosts started in phase 2 start after every immediate given, so overrides (C18) written anywhere
+  in the chain apply. After start, every arrangement member (`ConfigureServices`, `Configure`,
+  `Pipeline`, `Environment`, `OnSockets`, `WithProtocols`) throws `InvalidOperationException`
+  naming the host, mirroring C1.
 - A host that fails to start — including a hosted service of its own failing to start — fails the
   test as an arrangement failure, carrying the startup exception.
-- By default a host runs on the in-memory test server. `x.Host<EntryPoint>().OnSockets()` runs an
-  entry-point host on real sockets instead, through the factory's Kestrel mode; a test-composed
-  host cannot be put on sockets (C22).
-- `host.CreateClient()` returns an `HttpClient` with the host's base address and **redirects not
-  followed** (every suite in the survey turned them off to assert on 3xx responses).
-- `host.Address` is the base address; it is available from phase 2 onwards.
-- Hosts are stopped and disposed in reverse start order in phase 7.
+- By default a host runs on the in-memory test server.
+  `ApplicationHost.For<EntryPoint>(this).OnSockets()` runs an entry-point host on real sockets
+  instead, through the factory's Kestrel mode; a test-composed host cannot be put on sockets (C22).
+- `host.Name` is the host's name: the entry type's name for an entry-point host, the given name
+  for a composed one.
+- `host.Address` is the base address. On the test server each host gets `http://{name}/`, with the
+  name lower-cased and every character outside `[a-z0-9-]` replaced by `-` — `http://program/` for
+  `ApplicationHost.For<Program>(this)`. On sockets it is the bound address (C22).
+- `host.CreateClient()` returns an `HttpClient` over the test server's handler with the host's base
+  address and **redirects not followed** (every suite in the survey turned them off to assert on
+  3xx responses).
 - Hosts never need the fixture registered inside the application; anything the application needs
   from the test is supplied through overrides (C18).
+- **Hosted services may be stopped twice.** `WebApplicationFactory` stops an entry-point host's
+  hosted services twice when it is disposed: its dispose stops the minimal-hosting host and then
+  disposes it, which stops it again. A hosted service under test should tolerate a second
+  `StopAsync`.
 
 ### Example
 
@@ -1304,19 +1336,22 @@ can host one area of an API).
 // WeatherEndpointTests.Startup.cs
 public sealed partial class WeatherEndpointTests
 {
-	private static WebApplication Compose(WebApplicationBuilder builder)
-	{
-		builder.Services.AddWeather();
-		var app = builder.Build();
-		app.MapWeather();
-		return app;
-	}
+	private static void ComposeServices(WebApplicationBuilder builder)
+		=> builder.Services.AddWeather();
+
+	private static void ComposePipeline(WebApplication app)
+		=> app.MapWeather();
 }
 
 // WeatherEndpointTests.Fixture.cs
 internal sealed class Fixture : ServiceFixture
 {
-	public TestHost Weather => Host("weather", Compose);
+	public Fixture()
+	{
+		Weather = ApplicationHost.Composed(this, "weather", ComposeServices, ComposePipeline);
+	}
+
+	public ApplicationHost Weather { get; }
 }
 
 // WeatherEndpointTests.Fluent.cs
@@ -1331,7 +1366,12 @@ public static When<Fixture, HttpResponseMessage> WhenGettingForecast(this Given<
 - `WhenTwoHostsAreDeclaredThenEachHasItsOwnAddress`
 - `WhenTwoTestsDeclareTheSameHostThenEachGetsItsOwnInstance`
 - `WhenOverrideIsWrittenAfterHostDeclarationThenItStillApplies`
-- `WhenOverrideIsAttemptedAfterStartThenInvalidOperationIsThrown`
+- `WhenOverrideIsAttemptedAfterStartThenInvalidOperationNamesTheHost`
+- `WhenHostIsCreatedThenItIsAttachedAndStartedInPhaseTwo`
+- `WhenHostIsAttachedAfterPhaseTwoThenItStartsOnFirstUse`
+- `WhenChainEndsThenHostsAreDisposedAfterTeardownCallbacksAndBeforeTheProvider`
+- `WhenHostIsNamedThenAddressIsItsLowerCaseNameWithInvalidCharactersReplaced`
+- `WhenEntryPointHostIsCreatedThenItsNameIsTheEntryTypesName`
 - `WhenHostFailsToStartThenTestFailsWithTheStartupException`
 - `WhenApplicationHostedServiceFailsToStartThenTestFailsAsArrangement`
 - `WhenClientIsCreatedThenRedirectsAreNotFollowed`
@@ -1359,30 +1399,50 @@ into a composite "default configuration" step — a workaround that disappears w
 
 ### Behaviour
 
-- `host.Services` is a collection applied to the application's container after its own
-  composition, with the `Override` semantics of C15. Hosted-service removals made on it (C12) are
-  replayed onto the application's container in the same order as its registrations.
-- `host.Configure(key, value)` sets configuration with the highest precedence.
-- `host.Pipeline(app => ...)` inserts middleware at a designated point (immediately before endpoint
-  mapping for a test-composed host; at the start of the pipeline for an entry-point host, through a
-  startup filter).
-- `host.Environment` sets the hosting environment name (default `Development`).
-- All of these obey the post-start lock.
+- `host.ConfigureServices(services => ...)` registers a callback that runs against the
+  **application's real `IServiceCollection`**, after its own composition and before the provider is
+  built (`ConfigureTestServices` for an entry-point host; after the `services` delegate and before
+  `Build()` for a composed one). Callbacks run in the order they were registered. Because the
+  collection is the real one, `Override` (C15), `Stub` (Moq package), `RedirectHttp` (C16, C21),
+  `RemoveHostedService` and `RemoveApplicationHostedServices` (C12) all work inside it unchanged.
+  - **Why a callback and not a recorded collection replayed later:** a replayed recording starts
+    empty, so it cannot remove every registration of a type, keep the original registration's
+    lifetime, or check that a hosted-service removal matched something — each of those needs the
+    application's registrations in front of it.
+- `host.Services` is the **running** application's `IServiceProvider` (C19), available once the
+  host has started; using it on a host that has not started starts it (C17).
+- `host.Configure(key, value)` sets configuration with the highest precedence: through
+  `UseSetting` for an entry-point host, and as an in-memory configuration source added last for a
+  composed one.
+- `host.Pipeline(app => ...)` (an `Action<IApplicationBuilder>`) inserts middleware: at the front
+  of the pipeline for an entry-point host, through a startup filter; between `Build()` and the
+  `pipeline` delegate for a composed one.
+- `host.Environment(name)` sets the hosting environment name (default `Development`).
+- All of these obey the post-start lock: after start each throws `InvalidOperationException` naming
+  the host.
 
 ### Example
 
 ```csharp
 public static Given<Fixture> GivenUpstreamDown(this Given<Fixture> given)
-	=> given.Given(x => x.Weather.Services.Override<ForecastSource>(new FailingForecastSource()));
+	=> given.Given(x => x.Weather.ConfigureServices(services => services.Override<ForecastSource>(new FailingForecastSource())));
 
 public static Given<Fixture> GivenForwardedHeaders(this Given<Fixture> given)
 	=> given.Given(x => x.Weather.Pipeline(app => app.UseForwardedHeaders()));
+
+public static Given<Fixture> GivenUpstream(this Given<Fixture> given, Uri upstream)
+	=> given
+		.Given(x => x.Weather.Configure("Forecast:Upstream", upstream.ToString()))
+		.Given(x => x.Weather.Environment("Staging"));
 ```
 
 ### Acceptance criteria
 
 - `WhenHostServiceIsOverriddenThenApplicationResolvesTheOverride`
 - `WhenHostServiceIsOverriddenThenApplicationEnumerableContainsOnlyTheOverride`
+- `WhenHostServiceIsOverriddenThenOriginalLifetimeIsKept`
+- `WhenServicesCallbacksAreRegisteredThenTheyRunInOrderAfterTheApplicationsComposition`
+- `WhenComposedHostPipelineIsAddedThenItRunsBeforeThePipelineDelegate`
 - `WhenHostConfigurationIsSetThenApplicationReadsIt`
 - `WhenPipelineMiddlewareIsAddedThenItRunsForEveryRequest`
 - `WhenEnvironmentIsSetThenApplicationSeesIt`
@@ -1410,6 +1470,8 @@ the other's writes.
 - `host.Scope(async (services, cancellationToken) => ...)` runs work in a fresh scope of the
   running application's container, disposing the scope afterwards.
 - `host.Resolve<Service>()` resolves from the application's root provider (for singletons).
+- `host.Services` is the running application's root `IServiceProvider` itself (C18), for work that
+  needs the provider rather than one service.
 - Both are valid from phase 2 onwards, so in deferred givens, acts and assertions; earlier use
   throws, naming the phase.
 
@@ -1514,7 +1576,12 @@ so a test can show that the claims it gave reach the API's policies and are acte
 // InvoiceEndpointTests.Fixture.cs — the product's Program registers Entra ID for its web API
 internal sealed class Fixture : ServiceFixture
 {
-	public TestHost Api => Host<Program>();
+	public Fixture()
+	{
+		Api = ApplicationHost.For<Program>(this);
+	}
+
+	public ApplicationHost Api { get; }
 	public string TenantId => field ??= Random.Guid().ToString();
 }
 
@@ -1582,8 +1649,9 @@ accepted any server certificate to make it work.
 
 ### Behaviour
 
-- `host.Services.RedirectHttp(...)` (C16 semantics) works inside a host's container.
-- `.To(otherHost)` targets another declared host: with in-memory hosts the request goes through
+- `RedirectHttp(...)` (C16 semantics) works inside a host's `ConfigureServices` callback (C18),
+  against the application's own collection.
+- `.To(otherHost)` targets another host created with the same fixture: with in-memory hosts the request goes through
   that host's in-memory handler; with socket hosts it goes to its address, trusting **only that
   host's certificate**.
 - `x.Services.RedirectHttp<Client>().To(host)` points a fixture-container client at a host — the
@@ -1594,7 +1662,7 @@ accepted any server certificate to make it work.
 
 ```csharp
 public static Given<Fixture> GivenSubscriberRunning(this Given<Fixture> given)
-	=> given.Given(x => x.Publisher.Services.RedirectHttp("webhooks").To(x.Subscriber));
+	=> given.Given(x => x.Publisher.ConfigureServices(services => services.RedirectHttp("webhooks").To(x.Subscriber)));
 ```
 
 ### Acceptance criteria
@@ -1628,13 +1696,14 @@ into the test project) and discovered the bound address by hand.
   loopback on an ephemeral port with HTTPS using a certificate **generated in memory for the test
   run** (never a file in the repository).
 - **Entry-point hosts only.** Socket hosting is available only for a host built from a real entry
-  point (`x.Host<EntryPoint>()`). A test-composed host (`x.Host(name, compose)`, C17) is a
-  `WebApplication` built from `compose`, with no entry point for `WebApplicationFactory` to load,
+  point (`ApplicationHost.For<EntryPoint>(fixture)`). A test-composed host
+  (`ApplicationHost.Composed(fixture, name, services, pipeline)`, C17) is a `WebApplication` built
+  from its two delegates, with no entry point for `WebApplicationFactory` to load,
   so it cannot use the factory's Kestrel mode — and the library never binds Kestrel by hand.
   `.OnSockets()` on a test-composed host fails the test as an arrangement failure in phase 2,
   before any host starts, with a message naming the host and saying that a test-composed host has
   no entry point for `WebApplicationFactory`'s Kestrel mode, so real sockets need a host declared
-  with `Host<EntryPoint>()`.
+  with `ApplicationHost.For<EntryPoint>(fixture)`.
 - `.WithProtocols(...)` selects HTTP/1.1, HTTP/2 or both.
 - `host.Address` reports the actual bound address.
 - `host.CreateClient()` trusts exactly that certificate.
@@ -1645,7 +1714,12 @@ into the test project) and discovered the bound address by hand.
 ```csharp
 internal sealed class Fixture : ServiceFixture
 {
-	public TestHost Relay => Host<Program>().OnSockets().WithProtocols(HttpProtocols.Http1AndHttp2);
+	public Fixture()
+	{
+		Relay = ApplicationHost.For<Program>(this).OnSockets().WithProtocols(HttpProtocols.Http1AndHttp2);
+	}
+
+	public ApplicationHost Relay { get; }
 }
 ```
 
@@ -1729,8 +1803,12 @@ controlling it.
 
 - `x.Time` is a `FakeTimeProvider` starting at an instant derived from the seed (C14): midnight UTC
   on 1 January 2000 plus `Seed` seconds, which puts any 31-bit seed between 2000 and 2068.
-- It is registered as `TimeProvider` in the fixture container and in every host with `TryAdd`, so
-  products that inject `TimeProvider` (including resilience pipelines) use it.
+- It is registered as `TimeProvider` in the fixture container with `TryAdd`, so products that
+  inject `TimeProvider` (including resilience pipelines) use it and a test that registers its own
+  wins.
+- In every host it **overrides** the application's `TimeProvider` registration rather than using
+  `TryAdd`: real applications register `TimeProvider.System` themselves, and the test must still
+  control time.
 - `x.Time.Advance(...)` moves time forward within any step.
 
 ### Example
@@ -1752,6 +1830,7 @@ public Task WhenReservationExpiresThenStockIsReleased()
 - `WhenTestRegistersItsOwnTimeProviderThenItWins`
 - `WhenTimeIsAdvancedThenTimersFire`
 - `WhenHostIsStartedThenItSharesTheFixtureTime`
+- `WhenApplicationRegistersSystemTimeProviderThenHostStillUsesTheFixtureTime`
 
 ### Coverage
 
@@ -1780,7 +1859,7 @@ fails far from its cause at run time — or not at all:
 |---|---|---|---|
 | `FG0001` | Warning | A property on a test class whose type derives from `ServiceFixture` and that is not a getter-only auto-property initialised with `new()` — an expression-bodied `=> new()` included. | Rewrite as `{ get; } = new();` |
 | `FG0002` | Warning | An expression whose type is one of the library's chain types (`Given<…>`, `When<…>`, `Then<…>`, `ThenThrows<…>`) whose value is discarded: an expression statement, or a chain assigned to a local that is never returned or awaited. | None |
-| `FG0003` | Warning | Within one chain expression, an immediate given whose lambda resolves from the fixture container (`Resolve`, `IsResolvable`), followed by a given whose lambda touches `Services`; or an immediate given whose lambda uses a running host (`TestHost.Scope`, `TestHost.Resolve`). | Append `.Deferred()` |
+| `FG0003` | Warning | Within one chain expression, an immediate given whose lambda resolves from the fixture container (`Resolve`, `IsResolvable`), followed by a given whose lambda touches `Services`; or an immediate given whose lambda uses a running host (`ApplicationHost.Scope`, `ApplicationHost.Resolve`). | Append `.Deferred()` |
 
 - Analysis is per method body. A step method called from the chain is not followed into; the
   analysers report what is visible in the chain as written.
@@ -1846,7 +1925,7 @@ withdrawn and has no row.
 | C8 | Async and cancellation | | Partly | Partly | `FluentGwt` (+ `.Xunit` for the token) |
 | C10 | Teardown, fixture cancellation | usage | No | No | `FluentGwt` |
 | C11 | Test configuration | usage | No | Partly | `FluentGwt` |
-| C12 | Integration gating (build-time), hosted services | | No | Yes (defects) | `FluentGwt` (marker, lifecycle, removal) + `.Xunit` (build targets, gate) + `.AspNetCore` (removal replayed onto hosts) |
+| C12 | Integration gating (build-time), hosted services | | No | Yes (defects) | `FluentGwt` (marker, lifecycle, removal) + `.Xunit` (build targets, gate) + `.AspNetCore` (removal inside a host's `ConfigureServices`) |
 | C13 | Theory and fixture-relative data | usage | No | No | `FluentGwt.Xunit` |
 | C14 | Seeded data, test identity | | No | No | `FluentGwt` (seed) + `.Bogus` |
 | C15 | Service overrides | usage | No | No | `FluentGwt` (+ `.Moq` for stubs) |
@@ -1906,6 +1985,7 @@ All in the root namespace `FluentGwt` (extension classes included, so a test fil
 | `[assembly: IntegrationEnabled]` (`IntegrationEnabledAttribute`) | The integration marker the xunit package's build targets emit (C12). |
 | `IntegrationEnabled` | Whether the assembly declaring the fixture's runtime type carries the marker (C12). |
 | `IServiceCollection.RemoveHostedService<Implementation>()`, `RemoveHostedService(Type)`, `RemoveApplicationHostedServices()` | Keep hosted services out of phase 4 or out of a host (C12). |
+| `interface FixtureHost : IAsyncDisposable` (`ValueTask Start(CancellationToken)`), `Attach(FixtureHost)` | A host the fixture starts in phase 2 and disposes in phase 7, in reverse, after teardown callbacks and before the provider; one attached after phase 2 is not started by the fixture (C17). |
 | `abstract class TestRunnerAttribute` | Assembly-level attribute supplying the test token; core reads it from the entry assembly (the test executable under Microsoft.Testing.Platform). The xunit package derives `XunitTestRunnerAttribute`, and its build targets stamp it on every consuming project. |
 
 **Xunit package** — `[IntegrationFact(justification, reason)]`, `[IntegrationTheory(justification,
@@ -1923,9 +2003,12 @@ property `FluentGwtIntegration` and defining the `INTEGRATION` symbol, `FixtureD
 `RedirectHttp<Client>()` returning a redirection builder with `RespondingWith(...)`, `Via(handler)`;
 `ServiceFixture.Http.Requests`.
 
-**AspNetCore package** — `ServiceFixture.Host<EntryPoint>()`, `Host(name, compose)` returning
-`TestHost`; on `TestHost`: `Services`, `Configure`, `Pipeline`, `Environment`,
-`OnSockets()` (entry-point hosts only), `WithProtocols(...)`, `Address`,
+**AspNetCore package** — `ApplicationHost : FixtureHost` (not `TestHost`, which collides with the
+`Microsoft.AspNetCore.TestHost` namespace, CA1724), created by `ApplicationHost.For<EntryPoint>(fixture)`
+and `ApplicationHost.Composed(fixture, name, services, pipeline)`; on `ApplicationHost`:
+`ConfigureServices(Action<IServiceCollection>)`, `Services` (the running application's
+`IServiceProvider`), `Configure(key, value)`, `Pipeline(Action<IApplicationBuilder>)`,
+`Environment(name)`, `Name`, `OnSockets()` (entry-point hosts only), `WithProtocols(...)`, `Address`,
 `CreateClient()`, `CreateWebSocket()`, `Scope(...)`, `Resolve<Service>()`, `Authentication()`
 returning `TestAuthentication` (`Principal`, `Issued`), `Authorisation` (`Decisions`); redirection
 builder `.To(host)`; givens `GivenAuthenticatedUser()`, `GivenAuthenticatedUser(scheme)`,
@@ -2007,12 +2090,12 @@ extension methods in the root namespace, with `TryAdd` defaults.
 
 | Package | Holds | Depends on |
 |---|---|---|
-| `FluentGwt` | Chain (2023, extended), phases, `ServiceFixture`, container lock and validation, overrides, configuration, integration marker attribute and its reading, hosted-service lifecycle and removal helpers, teardown, seed selection, `TestId`, `FakeTimeProvider` wiring, log capture, `TestRunnerAttribute` | `Microsoft.Extensions.DependencyInjection`, `.Configuration.*`, `.Hosting.Abstractions`, `.TimeProvider.Testing`, `.Diagnostics.Testing`, `AwesomeAssertions`, `FluentGwt.Analysers` |
+| `FluentGwt` | Chain (2023, extended), phases, `ServiceFixture`, container lock and validation, overrides, configuration, integration marker attribute and its reading, hosted-service lifecycle and removal helpers, teardown, `FixtureHost` and `Attach`, seed selection, `TestId`, `FakeTimeProvider` wiring, log capture, `TestRunnerAttribute` | `Microsoft.Extensions.DependencyInjection`, `.Configuration.*`, `.Hosting.Abstractions`, `.TimeProvider.Testing`, `.Diagnostics.Testing`, `AwesomeAssertions`, `FluentGwt.Analysers` |
 | `FluentGwt.Xunit` | Test token, `buildTransitive` targets for `FluentGwtIntegration` (the `INTEGRATION` symbol and the marker), `[IntegrationFact]`/`[IntegrationTheory]`, `IntegrationJustification`, `FixtureData`, test-output log sink, test identity for `TestId` | core, `xunit.v3.extensibility.core` |
 | `FluentGwt.Bogus` | `Random`, `Fake` | core, `Bogus` |
 | `FluentGwt.Moq` | `Stub<Service>()` | core, `Moq` |
 | `FluentGwt.Http` | `RedirectHttp`, responders, request recording | core, `Microsoft.Extensions.Http` |
-| `FluentGwt.AspNetCore` | Test hosts, host overrides (including replaying hosted-service removals), scopes, stubbed authentication and authorisation records, host-to-host redirection, socket hosting for entry-point hosts | core, `.Http`, `Microsoft.AspNetCore.Mvc.Testing` (and `Microsoft.AspNetCore.App` framework reference) |
+| `FluentGwt.AspNetCore` | `ApplicationHost`, host overrides (a `ConfigureServices` callback on the application's own collection, so hosted-service removals apply there), scopes, stubbed authentication and authorisation records, host-to-host redirection, socket hosting for entry-point hosts | core, `.Http`, `Microsoft.AspNetCore.Mvc.Testing` (and `Microsoft.AspNetCore.App` framework reference) |
 | `FluentGwt.Analysers` | Roslyn analysers and code fixes `FG0001`–`FG0003`; no runtime code | `Microsoft.CodeAnalysis.CSharp.Workspaces` (analyser asset only) |
 
 ---
@@ -2027,7 +2110,8 @@ Dependency order only; no ranking beyond that.
 2. **Execution model** — phases 1, 5, 6, 7 with a lazy, awaitable chain whose Then is the library's
    own type; C4, C5, C7, C8 (without the xunit token yet).
 3. **C6** exception expectations (needs the act/arrangement split from step 2).
-4. **C1** `ServiceFixture`, the container lock and validation; **C15** overrides.
+4. **C1** `ServiceFixture`, the container lock and validation; **C15** overrides; `FixtureHost`
+   and `Attach` (phase 2 start, phase 7 disposal).
 5. **C10** teardown and fixture cancellation (needs phase 7 and the fixture).
 6. **C3** deferral (phase 3).
 7. **C11** configuration, then **C12** in the core: the integration marker and its reading, the
@@ -2038,14 +2122,15 @@ Dependency order only; no ranking beyond that.
    (**C23**).
 10. **Bogus** and **Moq** packages.
 11. **Http package** — **C16**.
-12. **AspNetCore package** — **C17** (phase 2, hosts starting completely), then **C18** (with the
-    replay of C12's hosted-service removals), **C19**, **C20**, **C21**, **C22** (entry-point hosts
+12. **AspNetCore package** — **C17** (`ApplicationHost`, attached and started in phase 2, starting
+    completely), then **C18** (the `ConfigureServices` callback, in which C12's hosted-service
+    removals apply), **C19**, **C20**, **C21**, **C22** (entry-point hosts
     only).
-13. **Analysers package** — **C25** (needs the chain types and `TestHost` to analyse against).
+13. **Analysers package** — **C25** (needs the chain types and `ApplicationHost` to analyse against).
 14. **Package metadata and reproducible builds** — **D1**.
 15. **Continuous integration** — **D2** (needs D1 to pack in CI).
 16. **Branching model and protection** — **D3** (needs D2's checks to require).
-17. **Versioning and publishing from main** — **D4** (needs D1–D3).
+17. **Versioning, prereleases from dev, and releases from main** — **D4** (needs D1–D3).
 18. **README badges** — **D5** (needs D2 and D4 to point at).
 
 ---
@@ -2128,8 +2213,8 @@ trust and hard to debug into, and a build that embeds local paths is not reprodu
 requests, and the integration build (C12) is the one most likely to be skipped by hand.
 
 **Done.** `.github/workflows/ci.yml`:
-- Runs on pull requests into `develop` and `main`, and on pushes to `develop`, `main` and `v*` tags.
-- Jobs on `ubuntu-latest` and `windows-latest` (see OQ26): `actions/setup-dotnet` from
+- Runs on pull requests into `dev` and `main`, and on pushes to `dev`, `main` and `v*` tags.
+- Jobs on `ubuntu-latest` only — no Windows job (ruling 26): `actions/setup-dotnet` from
   `global.json`; `dotnet format --verify-no-changes`; `dotnet build -warnaserror`;
   `dotnet test --solution FluentGwt.slnx` (the default build); and
   `dotnet test --solution FluentGwt.slnx -p:FluentGwtIntegration=true` (the integration build,
@@ -2138,8 +2223,9 @@ requests, and the integration build (C12) is the one most likely to be skipped b
   that fails the job if a test project ran zero tests — the "solution omits its test project" trap.
 - `permissions: contents: read`; third-party actions pinned to a commit SHA, not a tag; a
   `concurrency` group that cancels superseded runs on the same pull request.
-- Dependency updates for NuGet packages and pinned actions (see OQ24), each arriving as a pull
-  request that CI must pass.
+- Dependency updates by **Dependabot** (ruling 24): `.github/dependabot.yml` covers the `nuget` and
+  `github-actions` ecosystems with `target-branch: dev`, so each update arrives as a pull request
+  into `dev` that CI must pass.
 
 **Checked by** the workflow running green on the first pull request, with each job's test count in
 its log, and by a deliberately failing commit on a throwaway branch turning it red (then deleted).
@@ -2154,15 +2240,19 @@ without a model there is no place for unreleased work to collect.
 | Branch | Purpose | Created from | Merges into |
 |---|---|---|---|
 | `main` | released code; every commit on it is a published version | — | — |
-| `develop` | integration; the repository's **default** branch | `main` | `release/*` |
-| `feature/*` | one capability or change | `develop` | `develop`, by pull request |
-| `release/x.y.z` | stabilising a version | `develop` | `main`, then back into `develop` |
-| `hotfix/x.y.z` | an urgent fix to a release | `main` | `main`, then back into `develop` |
+| `dev` | integration; the repository's **default** branch; every push builds and publishes an alpha prerelease (D4) | `main` | `release/*` |
+| `feature/*` | one capability or change | `dev` | `dev`, by pull request |
+| `release/x.y.z` | stabilising a version | `dev` | `main`, then back into `dev` |
+| `hotfix/x.y.z` | an urgent fix to a release | `main` | `main`, then back into `dev` |
 
-The current `clean-room-rebuild` branch becomes the first feature branch: `develop` is created from
-`main`, and the rebuild arrives in it by pull request **(owner)**.
+The integration branch is named `dev`, not `develop` (ruling 23). Feature branches target `dev`,
+and because `dev` is the default branch, a pull request opened without choosing a base targets it
+too.
 
-Branch protection, as GitHub rulesets on `main` and `develop` **(owner)**:
+The current `clean-room-rebuild` branch becomes the first feature branch: `dev` is created from
+`main`, made the default branch, and the rebuild arrives in it by pull request **(owner)**.
+
+Branch protection, as GitHub rulesets on `main` and `dev` **(owner)**:
 - pull request required, no direct pushes;
 - required status checks: every D2 job, and the branch up to date before merging;
 - no force pushes, no deletion;
@@ -2173,35 +2263,76 @@ Branch protection, as GitHub rulesets on `main` and `develop` **(owner)**:
 
 A tag ruleset restricts creating `v*` tags to the owner, since a tag is what publishes (D4).
 
-**Checked by** `gh api repos/smudge202/fluentgwt/rulesets` listing the rulesets, and a direct push
-to `develop` being refused.
+**Checked by** `gh api repos/smudge202/fluentgwt/rulesets` listing the rulesets,
+`gh api repos/smudge202/fluentgwt --jq .default_branch` printing `dev`, and a direct push to `dev`
+being refused.
 
-### D4 — Versioning and publishing from main (owner approves each publish)
+### D4 — Versioning, prereleases from dev, and releases from main (owner approves each release)
 
 **Problem.** Versions typed by hand drift from what was released; a publish that can run from any
 branch can release untested code; a re-publish of an existing version is rejected late or silently
-ignored.
+ignored; and unreleased work on `dev` should be installable without claiming a released number.
 
 **Done.**
-- **Versions come from tags** (see OQ22): a `vX.Y.Z` tag on `main` is version `X.Y.Z`; every other
-  commit builds as a prerelease of the next version, so a local or CI build never claims a released
-  number.
-- `.github/workflows/publish.yml` runs on a pushed `v*` tag and:
+- **Versions come from tags, through MinVer** (ruling 22): every library project references
+  `MinVer` (a build-time-only package reference). A `vX.Y.Z` tag on `main` is version `X.Y.Z`
+  (`MinVerTagPrefix` `v`); every other commit builds as a prerelease of the next patch version, so a
+  local or CI build never claims a released number. `MinVerDefaultPreReleaseIdentifiers` is
+  `alpha`, so MinVer appends the height — the commit count since the last tag — giving
+  `x.y.z-alpha.N`. MinVer reads tags only, which suits gitflow: the version decision is the tag
+  made when a release branch lands on `main`.
+- **Prereleases from `dev` go to GitHub Packages** (ruling 23). `.github/workflows/prerelease.yml`
+  runs on every push to `dev` (a merged pull request) and:
+  1. runs the D2 build and both test runs on that commit;
+  2. packs in `Release`, so every package is `x.y.z-alpha.N`;
+  3. pushes every `.nupkg` to `https://nuget.pkg.github.com/smudge202/index.json` with the
+     workflow's own `GITHUB_TOKEN`, under `permissions: contents: read, packages: write`. No secret
+     is stored.
+
+  GitHub Packages is free for public repositories. **Consumers must authenticate to the GitHub
+  NuGet registry even for a public package**: a package source for that URL with their GitHub user
+  name and a personal access token carrying `read:packages`. The README says so beside the
+  prerelease feed.
+- **Releases from `main` go to nuget.org.** `.github/workflows/publish.yml` runs on a pushed `v*`
+  tag and:
   1. fails unless the tagged commit is on `main` (`git merge-base --is-ancestor`);
   2. runs the D2 build and both test runs again on that exact commit;
   3. packs in `Release`;
   4. **fails if any package's version already exists on nuget.org** — checked before pushing anything,
      so a release is all packages or none;
-  5. pushes every `.nupkg` and `.snupkg` to nuget.org through **Trusted Publishing** (OIDC; see OQ25),
-     so no long-lived API key is stored;
+  5. pushes every `.nupkg` and `.snupkg` to nuget.org through **Trusted Publishing** (ruling 25):
+     the job has `permissions: id-token: write` (and `contents: write` for step 6); the
+     `NuGet/login` action (pinned to a commit SHA, D2) exchanges the job's GitHub OIDC token for a
+     short-lived nuget.org API key, given the owner's nuget.org user name from the repository
+     variable `NUGET_USER` (a name, not a secret); and
+     `dotnet nuget push "*.nupkg" --api-key <the action's NUGET_API_KEY output> --source https://api.nuget.org/v3/index.json`
+     pushes with that key. No API key is stored as a secret, so there is nothing to leak or rotate;
   6. creates a GitHub release for the tag with the packages attached.
 - The publish job runs in a GitHub **environment** named `nuget` with the owner as required reviewer,
-  so every publish waits for the owner's approval even after the tag is pushed.
+  so every release waits for the owner's approval even after the tag is pushed.
 - Releasing is therefore: merge `release/x.y.z` into `main` → tag `vx.y.z` on `main` → approve the
   `nuget` environment.
+- **Trusted Publishing setup (owner)**, performed once from these steps before the first release:
+  1. Sign in to nuget.org as the account that will own the packages; from the account menu open
+     **Trusted Publishing** and add a policy.
+  2. Repository owner `smudge202`, repository `fluentgwt`, workflow file `publish.yml`,
+     environment `nuget`, package pattern `FluentGwt*` — not `*`, which would let this workflow
+     publish any package the account owns.
+  3. In the GitHub repository, add the repository variable `NUGET_USER` holding that nuget.org
+     user name, and create the `nuget` environment with the owner as required reviewer.
+- **ID prefix reservation (owner)** (ruling 27), after the first release to nuget.org, since
+  eligibility likely requires a published package:
+  1. Confirm the `FluentGwt` packages are listed under the owner's nuget.org account.
+  2. Request reservation of the `FluentGwt` prefix (covering `FluentGwt.*`) by the route nuget.org's
+     ID prefix reservation documentation gives — at the time of writing, an email to
+     `account@nuget.org` from the owning account's address naming the account and the prefix.
+  3. Once granted, every `FluentGwt` package shows the verified check mark, and nobody else can
+     publish a new `FluentGwt.*` ID.
 
-**Checked by** a dry run: the workflow on a tag in a fork or with the push step disabled, showing
-the version derived, the existence check passing, and the packages it would push.
+**Checked by** a dry run: the publish workflow on a tag in a fork or with the push step disabled,
+showing the version derived, the existence check passing, and the packages it would push; and, for
+prereleases, the first push to `dev` producing `x.y.z-alpha.N` packages listed under the
+repository's **Packages**.
 
 ### D5 — README badges
 
@@ -2209,7 +2340,7 @@ the version derived, the existence check passing, and the packages it would push
 is and what the licence is.
 
 **Done.** A badge row at the top of the README:
-- CI status for `develop` and for `main` (the D2 workflow's badge);
+- CI status for `dev` and for `main` (the D2 workflow's badge);
 - nuget.org version for each package (`FluentGwt`, `.Xunit`, `.AspNetCore`, `.Http`, `.Moq`,
   `.Bogus`, `.Analysers`), and total downloads for `FluentGwt`;
 - licence (Apache-2.0) and target framework (.NET 10).
@@ -2219,18 +2350,23 @@ badge reading "not found" is worse than none.
 
 **Checked by** every badge resolving once D2 and D4 have run.
 
-### Open questions for delivery
+### Rulings
 
-22. **Versioning tool.** MinVer (tags only; recommended — gitflow puts the version decision on the
-    release branch's tag, which is exactly what MinVer reads) or GitVersion (derives versions from
-    branch names; more configuration, more to drift)?
-23. **Prereleases.** Should `develop` publish prereleases (`x.y.z-alpha.N`) somewhere — nuget.org,
-    GitHub Packages — or nothing until a release?
-24. **Dependency updates.** Dependabot (built into GitHub; recommended for a public repository) or
-    Renovate (which the owner runs for the lab)?
-25. **Publishing credential.** nuget.org Trusted Publishing (recommended; nothing to leak or rotate)
-    or an API key stored as a repository secret?
-26. **Windows in CI.** The owner develops on Windows and the build-target tests shell out to
-    `dotnet`; is a Windows job wanted alongside Linux, at roughly double the CI minutes?
-27. **Package ID prefix.** Apply to nuget.org to reserve the `FluentGwt` ID prefix, so nobody else
-    can publish `FluentGwt.*` packages? Recommended; it requires the first package published first.
+The owner's rulings on the six delivery questions this section previously held, folded into D2–D5.
+
+22. **Versioning tool: MinVer.** Tags only; gitflow puts the version decision on the tag made when a
+    release branch lands on `main`, which is exactly what MinVer reads (D4).
+23. **Prereleases: from `dev`, to GitHub Packages.** The integration branch is named `dev`, not
+    `develop`. Every push to `dev` builds an alpha prerelease (`x.y.z-alpha.N`, MinVer's prerelease
+    from height) and publishes it to GitHub Packages, which is free for public repositories;
+    consumers must authenticate to the GitHub NuGet registry even for public packages, with a
+    personal access token carrying `read:packages`. Releases from `main` go to nuget.org (D3, D4).
+24. **Dependency updates: Dependabot**, for the `nuget` and `github-actions` ecosystems, targeting
+    `dev` (D2).
+25. **Publishing credential: nuget.org Trusted Publishing.** No API key secret; the publish job has
+    `permissions: id-token: write` and uses the `NuGet/login` action to exchange the OIDC token for a
+    short-lived key, then `dotnet nuget push` with that key. The owner sets it up from the steps in
+    D4.
+26. **CI platform: Linux only** (`ubuntu-latest`); no Windows job (D2).
+27. **Package ID prefix: reserve `FluentGwt` on nuget.org after the first publish**, since
+    eligibility likely requires a published package. The owner performs it from the steps in D4.

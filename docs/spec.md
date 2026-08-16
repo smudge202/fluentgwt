@@ -2316,8 +2316,13 @@ ignored; and unreleased work on `dev` should be installable without claiming a r
   1. Sign in to nuget.org as the account that will own the packages; from the account menu open
      **Trusted Publishing** and add a policy.
   2. Repository owner `smudge202`, repository `fluentgwt`, workflow file `publish.yml`,
-     environment `nuget`, package pattern `FluentGwt*` — not `*`, which would let this workflow
-     publish any package the account owns.
+     environment `nuget`. Scopes: **Push**, with **Push new packages and package versions**;
+     **Unlist or relist** left off. Glob pattern `FluentGwt*` — not `*`, which would let this
+     workflow publish any package the account owns.
+     **Done 2026-10-08:** the policy exists with these settings.
+  2a. After the first release to nuget.org, once every `FluentGwt*` ID exists, edit the policy's
+     push scope to **Push only new package versions**, so the workflow can never create a new
+     package ID.
   3. In the GitHub repository, add the repository variable `NUGET_USER` holding that nuget.org
      user name, and create the `nuget` environment with the owner as required reviewer.
 - **ID prefix reservation (owner)** (ruling 27), after the first release to nuget.org, since

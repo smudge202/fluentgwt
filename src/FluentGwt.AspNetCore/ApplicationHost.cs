@@ -76,6 +76,29 @@ public sealed partial class ApplicationHost : FixtureHost
 		return Arranging(() => _environment = name);
 	}
 
+	public Service Resolve<Service>() where Service : notnull => Services.GetRequiredService<Service>();
+
+	public async Task Scope(Action<IServiceProvider> work)
+	{
+		ArgumentNullException.ThrowIfNull(work);
+		await using var scope = Services.CreateAsyncScope();
+		work(scope.ServiceProvider);
+	}
+
+	public async Task Scope(Func<IServiceProvider, CancellationToken, Task> work)
+	{
+		ArgumentNullException.ThrowIfNull(work);
+		await using var scope = Services.CreateAsyncScope();
+		await work(scope.ServiceProvider, _fixture.Cancellation);
+	}
+
+	public async Task<Result> Scope<Result>(Func<IServiceProvider, CancellationToken, Task<Result>> work)
+	{
+		ArgumentNullException.ThrowIfNull(work);
+		await using var scope = Services.CreateAsyncScope();
+		return await work(scope.ServiceProvider, _fixture.Cancellation);
+	}
+
 	public HttpClient CreateClient() => new(Ensure().Server.CreateHandler()) { BaseAddress = Address };
 
 	public ValueTask Start(CancellationToken cancellationToken)

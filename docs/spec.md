@@ -1472,8 +1472,11 @@ the other's writes.
 - `host.Resolve<Service>()` resolves from the application's root provider (for singletons).
 - `host.Services` is the running application's root `IServiceProvider` itself (C18), for work that
   needs the provider rather than one service.
-- Both are valid from phase 2 onwards, so in deferred givens, acts and assertions; earlier use
-  throws, naming the phase.
+- Like every other `ApplicationHost` member that needs the running application, they start the host
+  on first use. Used in an immediate given, that start happens before later arrangement, which the
+  host then refuses — so seeding belongs in a deferred given, as in the example.
+- `Scope` passes its work the fixture's `Cancellation` (C10), the token linked to the test's.
+  It has sync, `Task` and result-returning forms.
 
 ### Example
 
@@ -1495,7 +1498,8 @@ public static Then<Fixture, HttpResponseMessage> ThenForecastIsStored(this When<
 ### Acceptance criteria
 
 - `WhenScopeIsUsedAfterStartThenItResolvesApplicationServices`
-- `WhenScopeIsUsedBeforeStartThenInvalidOperationNamesThePhase`
+- `WhenScopeIsUsedBeforeStartThenTheHostStartsOnFirstUse`
+- `WhenScopeIsGivenWorkThenItReceivesTheFixtureCancellation`
 - `WhenScopeCompletesThenScopedServicesAreDisposed`
 - `WhenDeferredGivenSeedsThroughHostThenActSeesTheData`
 - `WhenAssertionReadsThroughHostThenItSeesActWrites`

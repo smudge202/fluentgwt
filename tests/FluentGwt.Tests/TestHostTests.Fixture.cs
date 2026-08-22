@@ -19,6 +19,7 @@ public sealed partial class TestHostTests
 		public ApplicationHost Api { get; }
 		public ApplicationHost Composed { get; }
 		public Journal Journal { get; } = new();
+		public string? Seen { get; set; }
 	}
 
 	internal sealed record Reply(HttpStatusCode Status, string Body, HttpResponseHeaders Headers);

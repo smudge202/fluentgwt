@@ -21,6 +21,8 @@ public static class WebComposition
 		app.MapGet("/redirect", () => Results.Redirect("/greeting"));
 		app.MapGet("/count", (RequestCounter counter) => counter.Next());
 		app.MapGet("/time", (TimeProvider time) => time.GetUtcNow().ToUnixTimeSeconds());
+		app.MapGet("/journal", (Journal journal) => string.Join(',', journal.Entries));
+		app.MapPost("/journal/{entry}", (string entry, Journal journal) => journal.Entries.Enqueue(entry));
 		return app;
 	}
 }

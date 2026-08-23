@@ -24,6 +24,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly Lazy<int> _seed;
 	private readonly Lazy<FakeTimeProvider> _time;
 	private readonly Action<string>? _output = Runner.Output;
+	private readonly string? _identity = Runner.TestIdentity;
 	private ServiceProvider? _provider;
 	private string _seedOrigin = "fresh";
 	private bool _composed;
@@ -53,7 +54,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 
 	public FakeTimeProvider Time => _time.Value;
 
-	public string TestId => TestIdentity.Derive(Seed, Runner.TestIdentity ?? GetType().FullName ?? GetType().Name);
+	public string TestId => TestIdentity.Derive(Seed, _identity ?? GetType().FullName ?? GetType().Name);
 
 	public IConfiguration Configuration => _configuration.Root;
 

@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
 
 namespace FluentGwt.Tests.Web;
 
@@ -43,5 +45,17 @@ public sealed class StartupCheck(IConfiguration configuration, Journal journal) 
 		if (Interlocked.Exchange(ref _stopped, 1) == 0)
 			journal.Entries.Enqueue($"stop {Name}");
 		return Task.CompletedTask;
+	}
+}
+
+public sealed class StampingResultHandler : IAuthorizationMiddlewareResultHandler
+{
+	private readonly AuthorizationMiddlewareResultHandler _default = new();
+
+	public Task HandleAsync(RequestDelegate next, HttpContext context, AuthorizationPolicy policy, PolicyAuthorizationResult authorizeResult)
+	{
+		ArgumentNullException.ThrowIfNull(context);
+		context.Response.Headers["X-Result-Handler"] = "application";
+		return _default.HandleAsync(next, context, policy, authorizeResult);
 	}
 }

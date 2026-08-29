@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -12,6 +13,8 @@ namespace FluentGwt;
 
 public sealed partial class ApplicationHost : FixtureHost
 {
+	private static readonly ConditionalWeakTable<ServiceFixture, List<ApplicationHost>> _Hosts = new();
+
 	private readonly Lock _lock = new();
 	private readonly ServiceFixture _fixture;
 	private readonly Func<ApplicationHost, Running> _start;
@@ -20,6 +23,8 @@ public sealed partial class ApplicationHost : FixtureHost
 	private readonly List<Action<IApplicationBuilder>> _pipeline = [];
 	private string _environment = Environments.Development;
 	private Running? _running;
+	private TestAuthentication? _authentication;
+	private TestAuthorisation? _authorisation;
 
 	[SuppressMessage("Globalization", "CA1308", Justification = "Host names in a URI are lowercase; the result is only ever used as one.")]
 	private ApplicationHost(ServiceFixture fixture, string name, Func<ApplicationHost, Running> start)
@@ -29,6 +34,9 @@ public sealed partial class ApplicationHost : FixtureHost
 		Name = name;
 		Address = new($"http://{UnsafeInHostName().Replace(name.ToLowerInvariant(), "-")}/");
 		fixture.Attach(this);
+		var hosts = _Hosts.GetOrCreateValue(fixture);
+		lock (hosts)
+			hosts.Add(this);
 	}
 
 	public string Name { get; }
@@ -36,6 +44,9 @@ public sealed partial class ApplicationHost : FixtureHost
 	public Uri Address { get; }
 
 	public IServiceProvider Services => Ensure().Services;
+
+	public TestAuthorisation Authorisation =>
+		_authorisation ?? throw new InvalidOperationException($"The {Name} host records authorisation decisions only once Authentication() has been called while arranging it.");
 
 	public static ApplicationHost For<EntryPoint>(ServiceFixture fixture) where EntryPoint : class
 	{
@@ -50,6 +61,24 @@ public sealed partial class ApplicationHost : FixtureHost
 		ArgumentNullException.ThrowIfNull(services);
 		ArgumentNullException.ThrowIfNull(pipeline);
 		return new(fixture, name, host => host.StartComposed(services, pipeline));
+	}
+
+	public TestAuthentication Authentication()
+	{
+		lock (_lock)
+		{
+			if (_authentication is not null)
+				return _authentication;
+		}
+		var authentication = new TestAuthentication(_fixture);
+		var authorisation = new TestAuthorisation();
+		Arranging(() =>
+		{
+			_authentication = authentication;
+			_authorisation = authorisation;
+			_services.Add(services => StubAuthentication.Apply(services, authentication, authorisation));
+		});
+		return authentication;
 	}
 
 	public ApplicationHost ConfigureServices(Action<IServiceCollection> configure)
@@ -114,6 +143,17 @@ public sealed partial class ApplicationHost : FixtureHost
 			running = _running;
 		if (running is not null)
 			await running.Dispose();
+	}
+
+	internal static ApplicationHost Only(ServiceFixture fixture)
+	{
+		if (!_Hosts.TryGetValue(fixture, out var hosts))
+			throw new InvalidOperationException($"{fixture.GetType().Name} has no application host to arrange.");
+		lock (hosts)
+			return hosts.Count == 1
+				? hosts[0]
+				: throw new InvalidOperationException(
+					$"{fixture.GetType().Name} has {hosts.Count} application hosts ({string.Join(", ", hosts.Select(x => x.Name))}); arrange the one meant through it, as x.Host.Authentication().");
 	}
 
 	private Running Ensure()

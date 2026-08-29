@@ -1551,7 +1551,14 @@ so a test can show that the claims it gave reach the API's policies and are acte
   `GivenAuthenticatedUser(scheme)` authenticates under that scheme only, leaving the others
   anonymous, so a test can show that an endpoint demands a particular scheme.
 - `GivenClaim(type, value)` and `GivenClaim(type, x => value)` add claims; adding a claim implies
-  authenticated. `GivenRole(role)` adds a claim of the scheme's role claim type.
+  authenticated. A value from the fixture is evaluated each time a request is authenticated, so a
+  later given that changes it is honoured. `GivenRole(role)` adds a claim of the scheme's role claim
+  type.
+- The givens arrange the fixture's only application host. A fixture with several hosts arranges the
+  one meant directly — `x.Api.Authentication().Claim(...)`, `.Role(...)`, `.AuthenticateAs(...)`,
+  `.Anonymous()` — and a given used on it fails, naming the hosts.
+- The replaced scheme's name and role claim types are read from its options' token validation
+  parameters by reflection, so the package has no dependency on any provider's package.
 - The stub builds each identity with the scheme name as its authentication type, and with the name
   and role claim types of the scheme it replaced where that scheme's options declare them (the
   token validation parameters of a bearer or OpenID Connect scheme); otherwise the `ClaimsIdentity`

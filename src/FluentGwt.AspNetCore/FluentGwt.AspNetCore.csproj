@@ -12,6 +12,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\FluentGwt.Http\FluentGwt.Http.csproj" />
 	</ItemGroup>
 
 </Project>

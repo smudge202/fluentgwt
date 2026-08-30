@@ -1667,7 +1667,14 @@ accepted any server certificate to make it work.
   host's certificate**.
 - `x.Services.RedirectHttp<Client>().To(host)` points a fixture-container client at a host — the
   client-library test case.
-- Host start order respects redirection: a host that is a redirection target starts first.
+- `.To(host)` forwards each request through the target host's handler, rewriting the request's
+  scheme and authority to the host's address and keeping its path and query. The request is recorded
+  like any other redirected request (C16).
+- **No start ordering is needed.** Hosts start on first use (C17), so a target that has not started
+  yet starts on the first request that reaches it. The earlier "a target starts first" rule, and the
+  circular-redirection check that came with it, are withdrawn: neither has anything left to do.
+- `To` lives in the AspNetCore package, which references the Http package; the Http package itself
+  stays free of ASP.NET.
 
 ### Example
 
@@ -1680,9 +1687,9 @@ public static Given<Fixture> GivenSubscriberRunning(this Given<Fixture> given)
 
 - `WhenHostClientIsRedirectedToHostThenRequestReachesTheOtherHost`
 - `WhenFixtureClientIsRedirectedToHostThenRequestReachesTheHost`
-- `WhenTargetHostIsDeclaredLaterThenItStillStartsFirst`
+- `WhenRedirectedToHostThenRequestKeepsItsPathAndQuery`
+- `WhenRedirectedToHostThenTheRequestIsRecorded`
 - `WhenSocketHostIsTargetedThenOnlyItsCertificateIsTrusted`
-- `WhenRedirectionIsCircularThenArrangementFailsNamingTheHosts`
 
 ### Coverage
 

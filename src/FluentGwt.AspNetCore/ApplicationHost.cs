@@ -128,7 +128,9 @@ public sealed partial class ApplicationHost : FixtureHost
 		return await work(scope.ServiceProvider, _fixture.Cancellation);
 	}
 
-	public HttpClient CreateClient() => new(Ensure().Server.CreateHandler()) { BaseAddress = Address };
+	public HttpClient CreateClient() => new(CreateHandler()) { BaseAddress = Address };
+
+	internal HttpMessageHandler CreateHandler() => Ensure().Server.CreateHandler();
 
 	public ValueTask Start(CancellationToken cancellationToken)
 	{

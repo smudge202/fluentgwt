@@ -56,6 +56,9 @@
 		<Compile Update="HostRedirectionTests.*.cs">
 			<DependentUpon>HostRedirectionTests.cs</DependentUpon>
 		</Compile>
+		<Compile Update="SocketHostTests.*.cs">
+			<DependentUpon>SocketHostTests.cs</DependentUpon>
+		</Compile>
 		<Compile Update="ChainTests.*.cs">
 			<DependentUpon>ChainTests.cs</DependentUpon>
 		</Compile>

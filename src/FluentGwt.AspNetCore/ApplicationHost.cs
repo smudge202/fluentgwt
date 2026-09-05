@@ -1,9 +1,17 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
+using System.Net.Security;
+using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,11 +25,14 @@ public sealed partial class ApplicationHost : FixtureHost
 
 	private readonly Lock _lock = new();
 	private readonly ServiceFixture _fixture;
+	private readonly Uri _address;
 	private readonly Func<ApplicationHost, Running> _start;
 	private readonly List<Action<IServiceCollection>> _services = [];
 	private readonly Dictionary<string, string?> _configuration = [];
 	private readonly List<Action<IApplicationBuilder>> _pipeline = [];
 	private string _environment = Environments.Development;
+	private bool _sockets;
+	private HttpProtocols _protocols = HttpProtocols.Http1;
 	private Running? _running;
 	private TestAuthentication? _authentication;
 	private TestAuthorisation? _authorisation;
@@ -32,7 +43,7 @@ public sealed partial class ApplicationHost : FixtureHost
 		_fixture = fixture;
 		_start = start;
 		Name = name;
-		Address = new($"http://{UnsafeInHostName().Replace(name.ToLowerInvariant(), "-")}/");
+		_address = new($"http://{UnsafeInHostName().Replace(name.ToLowerInvariant(), "-")}/");
 		fixture.Attach(this);
 		var hosts = _Hosts.GetOrCreateValue(fixture);
 		lock (hosts)
@@ -41,17 +52,21 @@ public sealed partial class ApplicationHost : FixtureHost
 
 	public string Name { get; }
 
-	public Uri Address { get; }
+	public Uri Address => Ensure().Address;
 
 	public IServiceProvider Services => Ensure().Services;
 
 	public TestAuthorisation Authorisation =>
 		_authorisation ?? throw new InvalidOperationException($"The {Name} host records authorisation decisions only once Authentication() has been called while arranging it.");
 
-	public static ApplicationHost For<EntryPoint>(ServiceFixture fixture) where EntryPoint : class
+	public static ApplicationHost For<EntryPoint>(ServiceFixture fixture) where EntryPoint : class =>
+		For<EntryPoint>(fixture, typeof(EntryPoint).Name);
+
+	public static ApplicationHost For<EntryPoint>(ServiceFixture fixture, string name) where EntryPoint : class
 	{
 		ArgumentNullException.ThrowIfNull(fixture);
-		return new(fixture, typeof(EntryPoint).Name, host => host.StartEntryPoint<EntryPoint>());
+		ArgumentException.ThrowIfNullOrWhiteSpace(name);
+		return new(fixture, name, host => host.StartEntryPoint<EntryPoint>());
 	}
 
 	public static ApplicationHost Composed(ServiceFixture fixture, string name, Action<WebApplicationBuilder> services, Action<WebApplication> pipeline)
@@ -105,6 +120,10 @@ public sealed partial class ApplicationHost : FixtureHost
 		return Arranging(() => _environment = name);
 	}
 
+	public ApplicationHost OnSockets() => Arranging(() => _sockets = true);
+
+	public ApplicationHost WithProtocols(HttpProtocols protocols) => Arranging(() => _protocols = protocols);
+
 	public Service Resolve<Service>() where Service : notnull => Services.GetRequiredService<Service>();
 
 	public async Task Scope(Action<IServiceProvider> work)
@@ -128,9 +147,27 @@ public sealed partial class ApplicationHost : FixtureHost
 		return await work(scope.ServiceProvider, _fixture.Cancellation);
 	}
 
-	public HttpClient CreateClient() => new(CreateHandler()) { BaseAddress = Address };
+	public HttpClient CreateClient()
+	{
+		var running = Ensure();
+		return new(running.CreateHandler())
+		{
+			BaseAddress = running.Address,
+			DefaultRequestVersion = _protocols.HasFlag(HttpProtocols.Http2) ? HttpVersion.Version20 : HttpVersion.Version11,
+			DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
+		};
+	}
 
-	internal HttpMessageHandler CreateHandler() => Ensure().Server.CreateHandler();
+	public Task<WebSocket> ConnectWebSocket(string path, CancellationToken cancellationToken)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(path);
+		var running = Ensure();
+		var address = new UriBuilder(new Uri(running.Address, path))
+		{
+			Scheme = running.Address.Scheme == Uri.UriSchemeHttps ? Uri.UriSchemeWss : Uri.UriSchemeWs,
+		}.Uri;
+		return running.ConnectWebSocket(address, cancellationToken);
+	}
 
 	public ValueTask Start(CancellationToken cancellationToken)
 	{
@@ -146,6 +183,8 @@ public sealed partial class ApplicationHost : FixtureHost
 		if (running is not null)
 			await running.Dispose();
 	}
+
+	internal HttpMessageHandler CreateHandler() => Ensure().CreateHandler();
 
 	internal static ApplicationHost Only(ServiceFixture fixture)
 	{
@@ -197,9 +236,9 @@ public sealed partial class ApplicationHost : FixtureHost
 		});
 		try
 		{
-			var server = configured.Server;
-			server.BaseAddress = Address;
-			return new(server, configured.Services, () => factory.DisposeAsync());
+			return _sockets
+				? OnKestrel(factory, configured)
+				: InMemory(configured.Server, configured.Services, () => factory.DisposeAsync());
 		}
 		catch
 		{
@@ -211,6 +250,9 @@ public sealed partial class ApplicationHost : FixtureHost
 
 	private Running StartComposed(Action<WebApplicationBuilder> services, Action<WebApplication> pipeline)
 	{
+		if (_sockets)
+			throw new InvalidOperationException(
+				$"The {Name} host is composed by the test, so it has no entry point for WebApplicationFactory's Kestrel mode. A host on real sockets must be declared with ApplicationHost.For<EntryPoint>(fixture).");
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = _environment });
 		builder.WebHost.UseTestServer();
 		builder.Configuration.AddInMemoryCollection(_configuration);
@@ -223,9 +265,7 @@ public sealed partial class ApplicationHost : FixtureHost
 				configure(app);
 			pipeline(app);
 			app.Start();
-			var server = app.GetTestServer();
-			server.BaseAddress = Address;
-			return new(server, app.Services, async () =>
+			return InMemory(app.GetTestServer(), app.Services, async () =>
 			{
 				await app.StopAsync();
 				await app.DisposeAsync();
@@ -238,14 +278,67 @@ public sealed partial class ApplicationHost : FixtureHost
 		}
 	}
 
+	private Running InMemory(TestServer server, IServiceProvider services, Func<ValueTask> dispose)
+	{
+		server.BaseAddress = _address;
+		return new(
+			_address,
+			services,
+			server.CreateHandler,
+			async (address, cancellationToken) => await server.CreateWebSocketClient().ConnectAsync(address, cancellationToken),
+			dispose);
+	}
+
+	[SuppressMessage("Reliability", "CA2000", Justification = "The certificate is disposed with the host; handlers and sockets go to callers, who own them.")]
+	private Running OnKestrel<EntryPoint>(WebApplicationFactory<EntryPoint> factory, WebApplicationFactory<EntryPoint> configured)
+		where EntryPoint : class
+	{
+		var certificate = SocketCertificate.Create(Name);
+		var thumbprint = certificate.GetCertHashString();
+		bool Pinned(object sender, X509Certificate? presented, X509Chain? chain, SslPolicyErrors errors) =>
+			presented?.GetCertHashString() == thumbprint;
+		configured.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listen =>
+		{
+			listen.Protocols = _protocols;
+			listen.UseHttps(certificate);
+		}));
+		configured.StartServer();
+		var bound = configured.Services.GetRequiredService<IServer>().Features.GetRequiredFeature<IServerAddressesFeature>().Addresses.First();
+		return new(
+			new Uri(bound),
+			configured.Services,
+			() => new SocketsHttpHandler { SslOptions = { RemoteCertificateValidationCallback = Pinned } },
+			async (target, cancellationToken) =>
+			{
+				var socket = new ClientWebSocket();
+				socket.Options.RemoteCertificateValidationCallback = Pinned;
+				await socket.ConnectAsync(target, cancellationToken);
+				return socket;
+			},
+			async () =>
+			{
+				await factory.DisposeAsync();
+				certificate.Dispose();
+			});
+	}
+
 	[GeneratedRegex("[^a-z0-9-]")]
 	private static partial Regex UnsafeInHostName();
 
-	private sealed class Running(TestServer server, IServiceProvider services, Func<ValueTask> dispose)
+	private sealed class Running(
+		Uri address,
+		IServiceProvider services,
+		Func<HttpMessageHandler> createHandler,
+		Func<Uri, CancellationToken, Task<WebSocket>> connectWebSocket,
+		Func<ValueTask> dispose)
 	{
-		public TestServer Server => server;
+		public Uri Address => address;
 
 		public IServiceProvider Services => services;
+
+		public HttpMessageHandler CreateHandler() => createHandler();
+
+		public Task<WebSocket> ConnectWebSocket(Uri target, CancellationToken cancellationToken) => connectWebSocket(target, cancellationToken);
 
 		public ValueTask Dispose() => dispose();
 	}

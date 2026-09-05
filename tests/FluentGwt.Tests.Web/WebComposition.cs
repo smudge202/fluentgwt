@@ -31,6 +31,8 @@ public static class WebComposition
 
 	public static WebApplication MapWeb(this WebApplication app)
 	{
+		app.UseWebSockets();
+		app.Map("/echo", Echo);
 		app.MapGet("/greeting", (Greeter greeter) => greeter.Greet());
 		app.MapGet("/greetings", (IEnumerable<Greeter> greeters) => greeters.Count());
 		app.MapGet("/configuration/{key}", (string key, IConfiguration configuration) => configuration[key] ?? string.Empty);
@@ -46,5 +48,19 @@ public static class WebComposition
 		app.MapGet("/journal", (Journal journal) => string.Join(',', journal.Entries));
 		app.MapPost("/journal/{entry}", (string entry, Journal journal) => journal.Entries.Enqueue(entry));
 		return app;
+	}
+
+	private static async Task Echo(HttpContext context)
+	{
+		if (!context.WebSockets.IsWebSocketRequest)
+		{
+			context.Response.StatusCode = StatusCodes.Status400BadRequest;
+			return;
+		}
+		using var socket = await context.WebSockets.AcceptWebSocketAsync();
+		var buffer = new byte[1024];
+		var received = await socket.ReceiveAsync(buffer, context.RequestAborted);
+		await socket.SendAsync(buffer.AsMemory(0, received.Count), received.MessageType, endOfMessage: true, context.RequestAborted);
+		await socket.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "echoed", context.RequestAborted);
 	}
 }

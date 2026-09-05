@@ -1725,7 +1725,16 @@ into the test project) and discovered the bound address by hand.
 - `.WithProtocols(...)` selects HTTP/1.1, HTTP/2 or both.
 - `host.Address` reports the actual bound address.
 - `host.CreateClient()` trusts exactly that certificate.
-- `host.CreateWebSocket()` returns a connected-ready client configured likewise.
+- `host.ConnectWebSocket(path, cancellationToken)` returns a connected `WebSocket` for any host:
+  through the test server in memory, or a `ClientWebSocket` trusting only the host's certificate on
+  sockets.
+- Each socket host generates its **own** self-signed certificate in memory (loopback and
+  `localhost`), so one host's client provably refuses another's. On Windows the certificate makes a
+  PKCS#12 round trip in memory, because SslStream there cannot serve an ephemeral key.
+- `ApplicationHost.For<EntryPoint>(fixture, name)` names a host explicitly, so one fixture can run
+  the same entry point twice (two socket hosts, say) with distinct names and addresses.
+- A socket host is a valid `.To(host)` redirection target (C21); requests go to its bound address
+  through a handler pinned to its certificate.
 
 ### Example
 
@@ -1745,8 +1754,11 @@ internal sealed class Fixture : ServiceFixture
 
 - `WhenHostRunsOnSocketsThenAddressIsLoopbackWithBoundPort`
 - `WhenHostRunsOnSocketsThenClientTrustsOnlyItsCertificate`
-- `WhenHttpTwoIsSelectedThenGrpcCallSucceeds`
-- `WhenWebSocketIsOpenedThenItConnectsToTheHost`
+- `WhenHttpTwoIsSelectedThenRequestsUseHttpTwo` (HTTP/2 negotiated over TLS; a gRPC client would add only a package)
+- `WhenWebSocketIsOpenedOnSocketsThenItConnectsToTheHost`
+- `WhenWebSocketIsOpenedInMemoryThenItConnectsToTheHost`
+- `WhenAnUnpinnedClientCallsASocketHostThenItsCertificateIsRefused`
+- `WhenFixtureClientIsRedirectedToASocketHostThenRequestReachesIt`
 - `WhenTwoSocketHostsRunInParallelThenPortsDiffer`
 - `WhenHostRunsOnSocketsThenItIsServedByTheFactorysKestrelMode`
 - `WhenComposedHostIsPutOnSocketsThenArrangementFailsExplainingWhy`

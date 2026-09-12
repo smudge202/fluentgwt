@@ -45,6 +45,7 @@ public static class WebComposition
 		app.MapGet("/admin", () => "admin").RequireAuthorization(policy => policy.RequireRole("Admin"));
 		app.MapGet("/partner", () => "partner").RequireAuthorization(policy => policy.AddAuthenticationSchemes("Partner").RequireAuthenticatedUser());
 		app.MapGet("/cookie", () => "cookie").RequireAuthorization(policy => policy.AddAuthenticationSchemes("Cookies").RequireAuthenticatedUser());
+		app.MapGet("/warn", (ILoggerFactory loggers) => loggers.CreateLogger("Web").LogWarning("Something odd in {Host}", "web"));
 		app.MapGet("/journal", (Journal journal) => string.Join(',', journal.Entries));
 		app.MapPost("/journal/{entry}", (string entry, Journal journal) => journal.Entries.Enqueue(entry));
 		return app;

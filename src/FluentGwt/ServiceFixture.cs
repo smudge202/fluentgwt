@@ -116,6 +116,16 @@ public abstract class ServiceFixture : IAsyncDisposable
 
 	public void Configure(string key, string? value) => _configuration.Set(key, value);
 
+	[SuppressMessage("Reliability", "CA2000", Justification = "Logging owns the providers it is given and disposes them with itself.")]
+	public void CaptureLogs(ILoggingBuilder logging, string source)
+	{
+		ArgumentNullException.ThrowIfNull(logging);
+		ArgumentException.ThrowIfNullOrWhiteSpace(source);
+		logging
+			.AddProvider(new FakeLoggerProvider(Logs))
+			.AddProvider(new TestOutputLoggerProvider(Write, OutputLevel(), source));
+	}
+
 	public void Attach(FixtureHost host)
 	{
 		ArgumentNullException.ThrowIfNull(host);

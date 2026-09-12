@@ -2,13 +2,15 @@ using Microsoft.Extensions.Logging;
 
 namespace FluentGwt;
 
-internal sealed class TestOutputLoggerProvider(Action<string> write, LogLevel minimum) : ILoggerProvider
+internal sealed class TestOutputLoggerProvider(Action<string> write, LogLevel minimum, string? source = null) : ILoggerProvider
 {
-	public ILogger CreateLogger(string categoryName) => new TestOutputLogger(categoryName, write, minimum);
+	private readonly string _prefix = source is null ? string.Empty : $"[{source}] ";
+
+	public ILogger CreateLogger(string categoryName) => new TestOutputLogger(_prefix, categoryName, write, minimum);
 
 	public void Dispose() { }
 
-	private sealed class TestOutputLogger(string category, Action<string> write, LogLevel minimum) : ILogger
+	private sealed class TestOutputLogger(string prefix, string category, Action<string> write, LogLevel minimum) : ILogger
 	{
 		public IDisposable? BeginScope<State>(State state) where State : notnull => null;
 
@@ -20,8 +22,8 @@ internal sealed class TestOutputLoggerProvider(Action<string> write, LogLevel mi
 			if (!IsEnabled(logLevel))
 				return;
 			write(exception is null
-				? $"[{logLevel}] {category}: {formatter(state, exception)}"
-				: $"[{logLevel}] {category}: {formatter(state, exception)}{Environment.NewLine}{exception}");
+				? $"{prefix}[{logLevel}] {category}: {formatter(state, exception)}"
+				: $"{prefix}[{logLevel}] {category}: {formatter(state, exception)}{Environment.NewLine}{exception}");
 		}
 	}
 }

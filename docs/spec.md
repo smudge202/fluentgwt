@@ -1790,6 +1790,9 @@ parallel execution.
 - The fixture captures the test's output writer when it is created, so work the test started in
   the background still writes to that test, and parallel tests never share output. A line written
   after the test has finished has no test to belong to and is dropped.
+- Hosts send their logs through `ServiceFixture.CaptureLogs(logging, source)`, which adds both the
+  test-output writer (each line prefixed `[{host name}]`) and the fixture's `Logs` collector to the
+  host's own logging builder. Any other `FixtureHost` can do the same.
 - The library's own diagnostics — the seed of a failed test, container validation failures,
   teardown failures — go to the same output.
 

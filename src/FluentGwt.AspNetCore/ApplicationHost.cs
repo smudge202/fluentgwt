@@ -229,6 +229,7 @@ public sealed partial class ApplicationHost : FixtureHost
 		var configured = factory.WithWebHostBuilder(builder =>
 		{
 			builder.UseEnvironment(_environment);
+			builder.ConfigureLogging(logging => _fixture.CaptureLogs(logging, Name));
 			foreach (var (key, value) in _configuration)
 				builder.UseSetting(key, value);
 			builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(new PipelineFilter(_pipeline)));
@@ -256,6 +257,7 @@ public sealed partial class ApplicationHost : FixtureHost
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = _environment });
 		builder.WebHost.UseTestServer();
 		builder.Configuration.AddInMemoryCollection(_configuration);
+		_fixture.CaptureLogs(builder.Logging, Name);
 		services(builder);
 		Overrides(builder.Services);
 		var app = builder.Build();

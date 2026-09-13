@@ -1,5 +1,7 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/FluentGwt.Analysers.CodeFixes/FluentGwt.Analysers.CodeFixes.csproj" />
+    <Project Path="src/FluentGwt.Analysers/FluentGwt.Analysers.csproj" />
     <Project Path="src/FluentGwt.AspNetCore/FluentGwt.AspNetCore.csproj" />
     <Project Path="src/FluentGwt.Bogus/FluentGwt.Bogus.csproj" />
     <Project Path="src/FluentGwt.Http/FluentGwt.Http.csproj" />

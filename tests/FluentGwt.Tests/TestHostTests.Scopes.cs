@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using AwesomeAssertions;
 using FluentGwt.Tests.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,7 @@ public sealed partial class TestHostTests
 			.Then(greeting => greeting.Should().Be("Hello"));
 
 	[Fact]
+	[SuppressMessage("FluentGwt", "FG0003", Justification = "Using the host from an immediate given is what this test is about.")]
 	public Task WhenScopeIsUsedBeforeStartThenTheHostStartsOnFirstUse()
 		=> Context
 			.Given(x => x.Seen = x.Api.Resolve<Greeter>().Greet())

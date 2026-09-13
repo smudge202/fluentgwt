@@ -1894,6 +1894,16 @@ fails far from its cause at run time — or not at all:
 | `FG0002` | Warning | An expression whose type is one of the library's chain types (`Given<…>`, `When<…>`, `Then<…>`, `ThenThrows<…>`) whose value is discarded: an expression statement, or a chain assigned to a local that is never returned or awaited. | None |
 | `FG0003` | Warning | Within one chain expression, an immediate given whose lambda resolves from the fixture container (`Resolve`, `IsResolvable`), followed by a given whose lambda touches `Services`; or an immediate given whose lambda uses a running host (`ApplicationHost.Scope`, `ApplicationHost.Resolve`). | Append `.Deferred()` |
 
+- **FG0002 is narrowed to executable chains:** a discarded `When`, `Then` or `ThenThrows` — as a
+  statement, the expression body of a void member or lambda, or a local of those types that is never
+  referenced. A discarded `Given` is not reported: `given.Given(...)` as a statement legitimately
+  extends the same chain, so flagging it would be wrong as often as right.
+- The analysers live in `FluentGwt.Analysers`, which references only the compiler; the code fixes live
+  in `FluentGwt.Analysers.CodeFixes`, which references Workspaces (Roslyn's rule RS1038 forbids
+  both in one assembly). Both target netstandard2.0 and Roslyn 5.0, the version .NET 10 shipped with.
+  Packing them into the core package's `analyzers` folder is part of D1.
+- The library's own test project runs the analysers over itself. The only finding is a test whose
+  subject is the immediate-host case FG0003 warns about, suppressed there with a justification.
 - Analysis is per method body. A step method called from the chain is not followed into; the
   analysers report what is visible in the chain as written.
 - Every diagnostic message names the member at fault and, for `FG0003`, the later given that would

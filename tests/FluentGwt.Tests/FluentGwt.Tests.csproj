@@ -8,6 +8,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="AwesomeAssertions" Version="9.6.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.12" />
 		<PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
 		<PackageReference Include="xunit.v3" Version="4.0.1" />
@@ -15,6 +16,8 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Analysers\FluentGwt.Analysers.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Analysers.CodeFixes\FluentGwt.Analysers.CodeFixes.csproj" />
 		<ProjectReference Include="..\..\src\FluentGwt.AspNetCore\FluentGwt.AspNetCore.csproj" />
 		<ProjectReference Include="..\..\src\FluentGwt.Bogus\FluentGwt.Bogus.csproj" />
 		<ProjectReference Include="..\..\src\FluentGwt.Http\FluentGwt.Http.csproj" />
@@ -59,9 +62,16 @@
 		<Compile Update="SocketHostTests.*.cs">
 			<DependentUpon>SocketHostTests.cs</DependentUpon>
 		</Compile>
+		<Compile Update="AnalyserTests.*.cs">
+			<DependentUpon>AnalyserTests.cs</DependentUpon>
+		</Compile>
 		<Compile Update="ChainTests.*.cs">
 			<DependentUpon>ChainTests.cs</DependentUpon>
 		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Analyzer Include="..\..\src\FluentGwt.Analysers\bin\$(Configuration)\netstandard2.0\FluentGwt.Analysers.dll" />
 	</ItemGroup>
 
 	<Import Project="..\..\src\FluentGwt.Xunit\buildTransitive\FluentGwt.Xunit.targets" />

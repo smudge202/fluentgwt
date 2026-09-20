@@ -34,6 +34,8 @@ public sealed partial class BuildTargetTests
 			};
 			start.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
 			start.Environment["DOTNET_NOLOGO"] = "1";
+			start.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+			start.Environment["DOTNET_CLI_USE_MSBUILD_SERVER"] = "0";
 			foreach (var (name, value) in Environment)
 				start.Environment[name] = value;
 			using var process = Process.Start(start) ?? throw new InvalidOperationException($"dotnet {arguments} did not start.");

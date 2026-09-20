@@ -3,6 +3,7 @@
 	<PropertyGroup>
 		<AssemblyName>FluentGwt.Bogus</AssemblyName>
 		<RootNamespace>FluentGwt</RootNamespace>
+		<Description>FluentGwt with Bogus: fixture.Fake and fixture.Random, seeded from the fixture so a failing test can be replayed.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>

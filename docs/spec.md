@@ -2243,12 +2243,22 @@ trust and hard to debug into, and a build that embeds local paths is not reprodu
   Link for GitHub ships with the .NET SDK and needs no package.
 - Test and helper projects are `IsPackable=false`.
 - The xunit package keeps its `buildTransitive` targets (C12).
+- **The analysers ship inside the core package** (`analyzers/dotnet/cs`), not as a package of their
+  own: every consumer of `FluentGwt` gets them, with one package ID fewer to publish and reserve. The
+  core project references both analyser projects with `ReferenceOutputAssembly=false` and packs their
+  outputs, found through MSBuild's `GetTargetPath` rather than a hard-coded `bin` path.
+- Versions come from MinVer (D4): a build with no release tag is `0.0.0-alpha.0.{height}`.
+- The pack tests build with `--artifacts-path` into a scratch directory, and child `dotnet`s run
+  without MSBuild node reuse, so nothing outlives the test or locks its scratch directory.
 
 **Checked by** an integration test in the style of the C12 build-target tests:
 - `WhenLibraryIsPackedThenEveryPackageCarriesLicenceReadmeRepositoryAndSymbols` — packs the solution
   to a temp folder and reads each `.nuspec`: licence expression, readme, repository URL and commit,
   and a matching `.snupkg`.
-- `WhenTestProjectsArePackedThenNothingIsProduced`.
+- `WhenSolutionIsPackedThenOnlyTheLibraryPackagesAreProduced` (the six library packages; tests,
+  helpers and the analyser projects produce none).
+- `WhenCorePackageIsPackedThenItCarriesTheAnalysersAndTheirFixes`.
+- `WhenSolutionIsPackedWithoutAReleaseTagThenItIsAnAlphaPrerelease`.
 
 ### D2 — Continuous integration
 

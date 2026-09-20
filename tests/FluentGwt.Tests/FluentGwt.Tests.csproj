@@ -65,6 +65,9 @@
 		<Compile Update="AnalyserTests.*.cs">
 			<DependentUpon>AnalyserTests.cs</DependentUpon>
 		</Compile>
+		<Compile Update="PackageTests.*.cs">
+			<DependentUpon>PackageTests.cs</DependentUpon>
+		</Compile>
 		<Compile Update="ChainTests.*.cs">
 			<DependentUpon>ChainTests.cs</DependentUpon>
 		</Compile>

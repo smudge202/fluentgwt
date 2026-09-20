@@ -3,6 +3,7 @@
 	<PropertyGroup>
 		<AssemblyName>FluentGwt</AssemblyName>
 		<RootNamespace>FluentGwt</RootNamespace>
+		<Description>Given/When/Then for .NET tests: chains that read as one expression, a ServiceFixture whose container refuses late registrations, overrides, configuration, seeded test data, time control and teardown.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -18,6 +19,24 @@
 		<PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
 	</ItemGroup>
 	
+	<ItemGroup>
+		<ProjectReference Include="..\FluentGwt.Analysers\FluentGwt.Analysers.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+		<ProjectReference Include="..\FluentGwt.Analysers.CodeFixes\FluentGwt.Analysers.CodeFixes.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackAnalysers</TargetsForTfmSpecificContentInPackage>
+	</PropertyGroup>
+
+	<Target Name="PackAnalysers">
+		<MSBuild Projects="@(ProjectReference)" Targets="GetTargetPath" Condition="'%(ProjectReference.ReferenceOutputAssembly)' == 'false'">
+			<Output TaskParameter="TargetOutputs" ItemName="_PackedAnalyser" />
+		</MSBuild>
+		<ItemGroup>
+			<TfmSpecificPackageFile Include="@(_PackedAnalyser)" PackagePath="analyzers/dotnet/cs" />
+		</ItemGroup>
+	</Target>
+
 	<ItemGroup>
 		<Compile Update="Given.Base.cs">
 			<DependentUpon>Given.cs</DependentUpon>

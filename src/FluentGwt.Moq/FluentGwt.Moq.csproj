@@ -3,6 +3,7 @@
 	<PropertyGroup>
 		<AssemblyName>FluentGwt.Moq</AssemblyName>
 		<RootNamespace>FluentGwt</RootNamespace>
+		<Description>FluentGwt with Moq: Services.Stub&lt;Service&gt;() registers a mock that replaces every registration of the service.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>

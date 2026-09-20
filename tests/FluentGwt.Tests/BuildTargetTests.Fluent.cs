@@ -58,7 +58,7 @@ internal static class BuildTargetTestsFluent
 			var version = $"0.0.0-build.{x.TestId}";
 			x.Environment["NUGET_PACKAGES"] = Path.Combine(root, "packages");
 			foreach (var project in _Packed)
-				await x.Dotnet(x.Repository, $"pack src/{project}/{project}.csproj -o \"{feed}\" -p:Version={version} -p:TreatWarningsAsErrors=false", cancellationToken);
+				await x.Dotnet(x.Repository, $"pack src/{project}/{project}.csproj -o \"{feed}\" --artifacts-path \"{Path.Combine(root, "artifacts")}\" -p:MinVerVersionOverride={version} -p:TreatWarningsAsErrors=false", cancellationToken);
 			await File.WriteAllTextAsync(Path.Combine(root, "nuget.config"), $"""
 				<configuration>
 					<packageSources>

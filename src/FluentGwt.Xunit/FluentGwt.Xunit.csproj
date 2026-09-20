@@ -3,6 +3,7 @@
 	<PropertyGroup>
 		<AssemblyName>FluentGwt.Xunit</AssemblyName>
 		<RootNamespace>FluentGwt</RootNamespace>
+		<Description>FluentGwt for xunit v3: the test cancellation token and identity, integration tests gated at build time with a stated justification, theory data built from the fixture, and test output.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>

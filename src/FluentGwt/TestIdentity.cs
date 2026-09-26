@@ -7,7 +7,7 @@ namespace FluentGwt;
 
 internal static class TestIdentity
 {
-	private const string _Alphabet = "abcdefghijklmnopqrstuvwxyz234567";
+	private const string Alphabet = "abcdefghijklmnopqrstuvwxyz234567";
 
 	public static string Derive(int seed, string identity)
 	{
@@ -16,7 +16,7 @@ internal static class TestIdentity
 		return string.Create(12, bits, (characters, value) =>
 		{
 			for (var index = 0; index < characters.Length; index++)
-				characters[index] = _Alphabet[(int)((value >> (59 - (5 * index))) & 31)];
+				characters[index] = Alphabet[(int)((value >> (59 - (5 * index))) & 31)];
 		});
 	}
 }

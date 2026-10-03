@@ -2272,8 +2272,9 @@ requests, and the integration build (C12) is the one most likely to be skipped b
   `dotnet test --solution FluentGwt.slnx` (the default build); and
   `dotnet test --solution FluentGwt.slnx -p:FluentGwtIntegration=true` (the integration build,
   which needs network for the transitive-package test).
-- Test results as TRX (`Microsoft.Testing.Extensions.TrxReport`) uploaded as an artefact, and a step
-  that fails the job if a test project ran zero tests — the "solution omits its test project" trap.
+- Test results as TRX (`Microsoft.Testing.Extensions.TrxReport`) uploaded as an artefact. Both test runs
+  pass `--minimum-expected-tests 300` to the test platform, so a run that silently loses its test
+  project — the "solution omits its test project" trap — fails instead of passing on nothing.
 - `permissions: contents: read`; third-party actions pinned to a commit SHA, not a tag; a
   `concurrency` group that cancels superseded runs on the same pull request.
 - Dependency updates by **Dependabot** (ruling 24): `.github/dependabot.yml` covers the `nuget` and
@@ -2334,13 +2335,14 @@ ignored; and unreleased work on `dev` should be installable without claiming a r
   `alpha`, so MinVer appends the height — the commit count since the last tag — giving
   `x.y.z-alpha.N`. MinVer reads tags only, which suits gitflow: the version decision is the tag
   made when a release branch lands on `main`.
-- **Prereleases from `dev` go to GitHub Packages** (ruling 23). `.github/workflows/prerelease.yml`
-  runs on every push to `dev` (a merged pull request) and:
-  1. runs the D2 build and both test runs on that commit;
+- **Prereleases from `dev` go to GitHub Packages** (ruling 23). An `alpha` job in `ci.yml` — not a
+  separate workflow, which could not depend on CI's result — runs on every push to `dev` (a merged
+  pull request), only after the build job has passed, and:
+  1. relies on the build job's build and both test runs of that commit;
   2. packs in `Release`, so every package is `x.y.z-alpha.N`;
   3. pushes every `.nupkg` to `https://nuget.pkg.github.com/smudge202/index.json` with the
-     workflow's own `GITHUB_TOKEN`, under `permissions: contents: read, packages: write`. No secret
-     is stored.
+     workflow's own `GITHUB_TOKEN`, under `permissions: contents: read, packages: write`, without
+     symbols (GitHub Packages does not take `.snupkg`). No secret is stored.
 
   GitHub Packages is free for public repositories. **Consumers must authenticate to the GitHub
   NuGet registry even for a public package**: a package source for that URL with their GitHub user

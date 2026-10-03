@@ -1,0 +1,101 @@
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  verify:
+    name: Verify, test and pack the tagged commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Require the tag to be on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main; releases are tagged on main only."
+            exit 1
+          fi
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build FluentGwt.slnx -warnaserror
+
+      - name: Test
+        run: dotnet test --solution FluentGwt.slnx --no-build --minimum-expected-tests 300
+
+      - name: Test the integration build
+        run: dotnet test --solution FluentGwt.slnx -p:FluentGwtIntegration=true --minimum-expected-tests 300
+
+      - name: Pack
+        run: dotnet pack FluentGwt.slnx -c Release -o artifacts
+
+      - name: Refuse any version already on nuget.org
+        run: |
+          for package in artifacts/*.nupkg; do
+            nuspec=$(unzip -p "$package" '*.nuspec')
+            id=$(printf '%s' "$nuspec" | sed -n 's:.*<id>\(.*\)</id>.*:\1:p' | head -n 1)
+            version=$(printf '%s' "$nuspec" | sed -n 's:.*<version>\(.*\)</version>.*:\1:p' | head -n 1)
+            lower_id=$(printf '%s' "$id" | tr '[:upper:]' '[:lower:]')
+            lower_version=$(printf '%s' "$version" | tr '[:upper:]' '[:lower:]')
+            if curl -fsS "https://api.nuget.org/v3-flatcontainer/$lower_id/index.json" 2>/dev/null \
+              | jq -e --arg version "$lower_version" '.versions | index($version)' > /dev/null; then
+              echo "::error::$id $version is already on nuget.org; nothing has been published."
+              exit 1
+            fi
+            echo "$id $version is new."
+          done
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages
+          path: artifacts
+
+  publish:
+    name: Publish to nuget.org
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: nuget
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: packages
+          path: artifacts
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Exchange the GitHub token for a short-lived nuget.org key
+        id: login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Push packages and symbols
+        run: >-
+          dotnet nuget push "artifacts/*.nupkg"
+          --source https://api.nuget.org/v3/index.json
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes

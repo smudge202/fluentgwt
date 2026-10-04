@@ -1,5 +1,10 @@
 # FluentGwt
 
+[![CI (dev)](https://github.com/smudge202/fluentgwt/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/smudge202/fluentgwt/actions/workflows/ci.yml?query=branch%3Adev)
+[![CI (main)](https://github.com/smudge202/fluentgwt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/smudge202/fluentgwt/actions/workflows/ci.yml?query=branch%3Amain)
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue)](https://github.com/smudge202/fluentgwt/blob/main/LICENSE)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
+
 Given/When/Then for .NET tests, written as one expression per fact.
 
 ```csharp

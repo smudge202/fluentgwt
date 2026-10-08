@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<AssemblyName>FluentGwt.AspNetCore</AssemblyName>
+		<RootNamespace>FluentGwt</RootNamespace>
+		<Description>FluentGwt hosts for ASP.NET Core: the real entry point or a test composition, arranged per test, with stubbed authentication, host-to-host redirection and real sockets.</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\FluentGwt.Http\FluentGwt.Http.csproj" />
+	</ItemGroup>
+
+</Project>

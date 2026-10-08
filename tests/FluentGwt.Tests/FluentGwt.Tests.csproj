@@ -1,0 +1,83 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<IsPackable>false</IsPackable>
+		<RootNamespace>FluentGwt.Tests</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AwesomeAssertions" Version="9.6.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.12" />
+		<PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
+		<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.1" />
+		<PackageReference Include="xunit.v3" Version="4.0.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Analysers\FluentGwt.Analysers.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Analysers.CodeFixes\FluentGwt.Analysers.CodeFixes.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.AspNetCore\FluentGwt.AspNetCore.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Bogus\FluentGwt.Bogus.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Http\FluentGwt.Http.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Moq\FluentGwt.Moq.csproj" />
+		<ProjectReference Include="..\..\src\FluentGwt.Xunit\FluentGwt.Xunit.csproj" />
+		<ProjectReference Include="..\FluentGwt.Tests.Integrated\FluentGwt.Tests.Integrated.csproj" />
+		<ProjectReference Include="..\FluentGwt.Tests.Web\FluentGwt.Tests.Web.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Update="GivenTests.*.cs">
+			<DependentUpon>GivenTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ServiceFixtureTests.*.cs">
+			<DependentUpon>ServiceFixtureTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HostedServiceTests.*.cs">
+			<DependentUpon>HostedServiceTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="TheoryTests.*.cs">
+			<DependentUpon>TheoryTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="BuildTargetTests.*.cs">
+			<DependentUpon>BuildTargetTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HttpTests.*.cs">
+			<DependentUpon>HttpTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="TestHostTests.*.cs">
+			<DependentUpon>TestHostTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="AuthenticationTests.*.cs">
+			<DependentUpon>AuthenticationTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HostRedirectionTests.*.cs">
+			<DependentUpon>HostRedirectionTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="SocketHostTests.*.cs">
+			<DependentUpon>SocketHostTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="AnalyserTests.*.cs">
+			<DependentUpon>AnalyserTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="PackageTests.*.cs">
+			<DependentUpon>PackageTests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ChainTests.*.cs">
+			<DependentUpon>ChainTests.cs</DependentUpon>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Analyzer Include="..\..\src\FluentGwt.Analysers\bin\$(Configuration)\netstandard2.0\FluentGwt.Analysers.dll" />
+	</ItemGroup>
+
+	<Import Project="..\..\src\FluentGwt.Xunit\buildTransitive\FluentGwt.Xunit.targets" />
+
+</Project>

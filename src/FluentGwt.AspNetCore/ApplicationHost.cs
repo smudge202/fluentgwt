@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
@@ -16,6 +17,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace FluentGwt;
 
@@ -226,10 +228,16 @@ public sealed partial class ApplicationHost : FixtureHost
 	private Running StartEntryPoint<EntryPoint>() where EntryPoint : class
 	{
 		var factory = new WebApplicationFactory<EntryPoint>();
+		var startFailure = new StartFailure();
 		var configured = factory.WithWebHostBuilder(builder =>
 		{
 			builder.UseEnvironment(_environment);
-			builder.ConfigureLogging(logging => _fixture.CaptureLogs(logging, Name));
+			builder.ConfigureLogging(logging =>
+			{
+				_fixture.CaptureLogs(logging, Name);
+				logging.AddProvider(startFailure);
+				logging.AddFilter<StartFailure>(StartFailure.Category, LogLevel.Error);
+			});
 			foreach (var (key, value) in _configuration)
 				builder.UseSetting(key, value);
 			builder.ConfigureServices(services => services.AddSingleton<IStartupFilter>(new PipelineFilter(_pipeline)));
@@ -241,10 +249,15 @@ public sealed partial class ApplicationHost : FixtureHost
 				? OnKestrel(factory, configured)
 				: InMemory(configured.Server, configured.Services, () => factory.DisposeAsync());
 		}
-		catch
+		catch (Exception exception)
 		{
 			configured.Dispose();
 			factory.Dispose();
+			// WebApplicationFactory runs the entry point on its own thread. When a hosted service fails to start,
+			// that thread can dispose the host before the factory reads its services, and the factory then throws
+			// ObjectDisposedException in place of the real failure. The host logged that failure first; surface it.
+			if (exception is ObjectDisposedException && startFailure.Exception is { } failure)
+				ExceptionDispatchInfo.Throw(failure);
 			throw;
 		}
 	}

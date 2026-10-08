@@ -4,6 +4,7 @@
 		<AssemblyName>FluentGwt.Moq</AssemblyName>
 		<RootNamespace>FluentGwt</RootNamespace>
 		<Description>FluentGwt with Moq: Services.Stub&lt;Service&gt;() registers a mock that replaces every registration of the service.</Description>
+		<PackageTags>$(PackageTags);moq;mocking</PackageTags>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -11,7 +12,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" PrivateAssets="none" />
 	</ItemGroup>
 
 </Project>

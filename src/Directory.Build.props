@@ -3,13 +3,13 @@
 	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
 	<PropertyGroup>
-		<Authors>Smudge</Authors>
+		<Authors>Tommy Long</Authors>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/smudge202/fluentgwt</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/smudge202/fluentgwt</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageTags>testing;given-when-then;bdd;fluent;xunit;aspnetcore</PackageTags>
+		<PackageTags>testing;given-when-then;bdd;fluent</PackageTags>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>

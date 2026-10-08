@@ -17,7 +17,7 @@ public Task WhenStockIsAvailableThenOrderIsAccepted()
 		.Then(result => result.Status.Should().Be(PlacementStatus.Accepted));
 ```
 
-Not yet published to NuGet. Targets .NET 10.
+Targets .NET 10.
 
 ## The pattern
 

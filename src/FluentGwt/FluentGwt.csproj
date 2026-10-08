@@ -4,6 +4,7 @@
 		<AssemblyName>FluentGwt</AssemblyName>
 		<RootNamespace>FluentGwt</RootNamespace>
 		<Description>Given/When/Then for .NET tests: chains that read as one expression, a ServiceFixture whose container refuses late registrations, overrides, configuration, seeded test data, time control and teardown.</Description>
+		<PackageTags>$(PackageTags);dependency-injection;component-testing;test-data;faketimeprovider</PackageTags>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -4,6 +4,7 @@
 		<AssemblyName>FluentGwt.AspNetCore</AssemblyName>
 		<RootNamespace>FluentGwt</RootNamespace>
 		<Description>FluentGwt hosts for ASP.NET Core: the real entry point or a test composition, arranged per test, with stubbed authentication, host-to-host redirection and real sockets.</Description>
+		<PackageTags>$(PackageTags);aspnetcore;webapplicationfactory;integration-testing;authentication</PackageTags>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -12,7 +13,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" PrivateAssets="none" />
 		<ProjectReference Include="..\FluentGwt.Http\FluentGwt.Http.csproj" />
 	</ItemGroup>
 

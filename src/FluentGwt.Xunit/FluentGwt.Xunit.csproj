@@ -4,6 +4,7 @@
 		<AssemblyName>FluentGwt.Xunit</AssemblyName>
 		<RootNamespace>FluentGwt</RootNamespace>
 		<Description>FluentGwt for xunit v3: the test cancellation token and identity, integration tests gated at build time with a stated justification, theory data built from the fixture, and test output.</Description>
+		<PackageTags>$(PackageTags);xunit;xunit-v3;integration-testing;theory-data</PackageTags>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -15,7 +16,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" />
+		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" PrivateAssets="none" />
 	</ItemGroup>
 
 </Project>

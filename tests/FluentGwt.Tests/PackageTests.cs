@@ -41,6 +41,13 @@ public sealed partial class PackageTests
 			.Then(files => files.Should().Contain(["analyzers/dotnet/cs/FluentGwt.Analysers.dll", "analyzers/dotnet/cs/FluentGwt.Analysers.CodeFixes.dll"]));
 
 	[IntegrationFact(PacksTheSolution, PacksTheSolutionReason)]
+	public Task WhenCoreIsPackedInReleaseInTheDefaultLayoutThenItCarriesTheAnalysers()
+		=> Context
+			.GivenTheCorePackagePackedAsCiDoes()
+			.When(x => x.Packages.Single(p => p.Id == "FluentGwt").Files)
+			.Then(files => files.Should().Contain(["analyzers/dotnet/cs/FluentGwt.Analysers.dll", "analyzers/dotnet/cs/FluentGwt.Analysers.CodeFixes.dll"]));
+
+	[IntegrationFact(PacksTheSolution, PacksTheSolutionReason)]
 	public Task WhenSolutionIsPackedWithoutAReleaseTagThenItIsAnAlphaPrerelease()
 		=> Context
 			.GivenThePackedSolution()

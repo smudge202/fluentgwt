@@ -29,7 +29,7 @@
 	</PropertyGroup>
 
 	<Target Name="PackAnalysers">
-		<MSBuild Projects="@(ProjectReference)" Targets="GetTargetPath" Condition="'%(ProjectReference.ReferenceOutputAssembly)' == 'false'">
+		<MSBuild Projects="@(ProjectReference)" Targets="GetTargetPath" RemoveProperties="TargetFramework;RuntimeIdentifier" Condition="'%(ProjectReference.ReferenceOutputAssembly)' == 'false'">
 			<Output TaskParameter="TargetOutputs" ItemName="_PackedAnalyser" />
 		</MSBuild>
 		<ItemGroup>

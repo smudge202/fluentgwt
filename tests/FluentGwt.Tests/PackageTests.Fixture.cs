@@ -17,6 +17,13 @@ public sealed partial class PackageTests
 			Packages = [.. Directory.GetFiles(output, "*.nupkg").Select(Package.Read)];
 		}
 
+		public async Task PackCoreAsCiDoes(CancellationToken cancellationToken)
+		{
+			var output = _dotnet.Scratch();
+			await _dotnet.Dotnet(_dotnet.Repository, $"pack src/FluentGwt/FluentGwt.csproj -c Release -o \"{output}\" -p:TreatWarningsAsErrors=false", cancellationToken);
+			Packages = [.. Directory.GetFiles(output, "*.nupkg").Select(Package.Read)];
+		}
+
 		protected override ValueTask DisposeFixture() => _dotnet.DisposeAsync();
 	}
 }

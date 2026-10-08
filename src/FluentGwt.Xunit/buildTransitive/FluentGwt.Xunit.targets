@@ -1,0 +1,17 @@
+<Project>
+
+	<!--
+		The x prefix is deliberate: MSBuild compares two operands that both parse as booleans as booleans,
+		so a bare '$(FluentGwtIntegration)' == 'true' also matches yes and on. Prefixed, neither side is
+		a boolean and the comparison is the case-insensitive string match the documentation promises.
+	-->
+	<PropertyGroup Condition="'x$(FluentGwtIntegration)' == 'xtrue'">
+		<DefineConstants>$(DefineConstants);INTEGRATION</DefineConstants>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="FluentGwt.XunitTestRunnerAttribute" />
+		<AssemblyAttribute Include="FluentGwt.IntegrationEnabledAttribute" Condition="'x$(FluentGwtIntegration)' == 'xtrue'" />
+	</ItemGroup>
+
+</Project>

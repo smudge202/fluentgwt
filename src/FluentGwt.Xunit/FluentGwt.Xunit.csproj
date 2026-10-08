@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<AssemblyName>FluentGwt.Xunit</AssemblyName>
+		<RootNamespace>FluentGwt</RootNamespace>
+		<Description>FluentGwt for xunit v3: the test cancellation token and identity, integration tests gated at build time with a stated justification, theory data built from the fixture, and test output.</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="xunit.v3.extensibility.core" Version="4.0.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="buildTransitive\FluentGwt.Xunit.targets" Pack="true" PackagePath="buildTransitive" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" />
+	</ItemGroup>
+
+</Project>

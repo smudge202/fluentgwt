@@ -7,10 +7,11 @@ updates:
       interval: weekly
     ignore:
       # The analysers build against the oldest Roslyn any .NET 10 SDK ships, so they load in all of them.
-      # A newer one silently stops them loading on older SDKs (CS8032), and CI cannot see it.
-      # Raise these deliberately, when the minimum SDK moves.
-      - dependency-name: "Microsoft.CodeAnalysis.CSharp"
-      - dependency-name: "Microsoft.CodeAnalysis.CSharp.Workspaces"
+      # A newer one silently stops them loading on older SDKs (CS8032), which the solution's own build
+      # cannot see. The whole family is ignored, because an update to any one of them (the rules package
+      # Microsoft.CodeAnalysis.Analyzers, say) drags the compiler packages along with it.
+      # Raise them together, deliberately, when the minimum SDK moves.
+      - dependency-name: "Microsoft.CodeAnalysis*"
     groups:
       microsoft:
         patterns: ["Microsoft.*", "System.*"]

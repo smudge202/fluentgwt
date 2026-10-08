@@ -2305,17 +2305,30 @@ too.
 
 The current `clean-room-rebuild` branch becomes the first feature branch: `dev` is created from
 `main`, made the default branch, and the rebuild arrives in it by pull request **(owner)**.
+**Done 2026-10-08:** `dev` is the default branch, and the rebuild merged into it as `feat/rebuild`
+(pull request #1).
 
 Branch protection, as GitHub rulesets on `main` and `dev` **(owner)**:
 - pull request required, no direct pushes;
-- required status checks: every D2 job, and the branch up to date before merging;
+- required status check: D2's "Build and test" job (from GitHub Actions), with the branch up to
+  date before merging. The `alpha` job is not required: it runs only after a merge;
 - no force pushes, no deletion;
 - signed commits required (local commits are signed; merges made in the GitHub UI are signed by
   GitHub);
 - required approvals **0** while the owner is the only maintainer, since GitHub does not let an
   author approve their own pull request; raise to 1 when a second maintainer exists.
 
-A tag ruleset restricts creating `v*` tags to the owner, since a tag is what publishes (D4).
+- conversations resolved before merging; stale approvals dismissed on a new push; no bypass list,
+  so the owner's own changes arrive by pull request like any other;
+- linear history **not** required, because gitflow merges `release/*` into `main` with merge commits.
+
+A tag ruleset on `refs/tags/v*` blocks creating, updating and deleting release tags for everyone
+but the repository-admin role (the owner), since a tag is what publishes (D4).
+
+**Done 2026-10-08:** both rulesets are active — "Protect main and dev" (deletion, non-fast-forward,
+required signatures, pull request, required status checks) and "Release tags" (creation, update,
+deletion; admin bypass) — and `gh api repos/smudge202/fluentgwt/rules/branches/dev` lists all five
+branch rules.
 
 **Checked by** `gh api repos/smudge202/fluentgwt/rulesets` listing the rulesets,
 `gh api repos/smudge202/fluentgwt --jq .default_branch` printing `dev`, and a direct push to `dev`
@@ -2358,13 +2371,15 @@ ignored; and unreleased work on `dev` should be installable without claiming a r
   5. pushes every `.nupkg` and `.snupkg` to nuget.org through **Trusted Publishing** (ruling 25):
      the job has `permissions: id-token: write` (and `contents: write` for step 6); the
      `NuGet/login` action (pinned to a commit SHA, D2) exchanges the job's GitHub OIDC token for a
-     short-lived nuget.org API key, given the owner's nuget.org user name from the repository
-     variable `NUGET_USER` (a name, not a secret); and
+     short-lived nuget.org API key, given the owner's nuget.org user name from the `nuget`
+     environment's variable `NUGET_USER` (a name, not a secret); and
      `dotnet nuget push "*.nupkg" --api-key <the action's NUGET_API_KEY output> --source https://api.nuget.org/v3/index.json`
      pushes with that key. No API key is stored as a secret, so there is nothing to leak or rotate;
   6. creates a GitHub release for the tag with the packages attached.
 - The publish job runs in a GitHub **environment** named `nuget` with the owner as required reviewer,
-  so every release waits for the owner's approval even after the tag is pushed.
+  so every release waits for the owner's approval even after the tag is pushed. The environment's
+  deployment rule admits only `v*` tags, so no other ref or workflow can use it, or the OIDC identity
+  the Trusted Publishing policy trusts.
 - Releasing is therefore: merge `release/x.y.z` into `main` → tag `vx.y.z` on `main` → approve the
   `nuget` environment.
 - **Trusted Publishing setup (owner)**, performed once from these steps before the first release:
@@ -2378,8 +2393,15 @@ ignored; and unreleased work on `dev` should be installable without claiming a r
   2a. After the first release to nuget.org, once every `FluentGwt*` ID exists, edit the policy's
      push scope to **Push only new package versions**, so the workflow can never create a new
      package ID.
-  3. In the GitHub repository, add the repository variable `NUGET_USER` holding that nuget.org
-     user name, and create the `nuget` environment with the owner as required reviewer.
+  3. In the GitHub repository, **Settings → Environments → New environment `nuget`**:
+     - **Required reviewers:** the owner. **Prevent self-review** stays **off**: it stops whoever
+       triggered a run from approving it, and the owner pushes the release tag, so it would lock the
+       owner out of every release. Turn it on when a second maintainer exists.
+     - **Deployment branches and tags:** **Selected branches and tags**, with one **tag** rule,
+       `v*`, and no branches. The publish job runs on `refs/tags/v…`, and nothing else needs it.
+     - **Environment variable `NUGET_USER`:** the nuget.org user name. It sits on the environment,
+       not the repository, because the publish job is the only job that runs in it.
+     - **Wait timer:** none.
 - **ID prefix reservation (owner)** (ruling 27), after the first release to nuget.org, since
   eligibility likely requires a published package:
   1. Confirm the `FluentGwt` packages are listed under the owner's nuget.org account.

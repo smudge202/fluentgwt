@@ -5,6 +5,12 @@ updates:
     target-branch: dev
     schedule:
       interval: weekly
+    ignore:
+      # The analysers build against the oldest Roslyn any .NET 10 SDK ships, so they load in all of them.
+      # A newer one silently stops them loading on older SDKs (CS8032), and CI cannot see it.
+      # Raise these deliberately, when the minimum SDK moves.
+      - dependency-name: "Microsoft.CodeAnalysis.CSharp"
+      - dependency-name: "Microsoft.CodeAnalysis.CSharp.Workspaces"
     groups:
       microsoft:
         patterns: ["Microsoft.*", "System.*"]

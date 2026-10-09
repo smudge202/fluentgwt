@@ -84,7 +84,7 @@ public sealed partial class PackageTests
 	[IntegrationFact(PacksTheSolution, PacksTheSolutionReason)]
 	public Task WhenSolutionIsPackedWithoutAReleaseTagThenItIsAnAlphaPrerelease()
 		=> Context
-			.GivenThePackedSolution()
+			.GivenThePackedSolution("-p:MinVerTagPrefix=untagged-")
 			.When(x => x.Packages.Select(p => p.Version).Distinct().ToArray())
 			.Then(versions => versions.Should().ContainSingle().Which.Should().Contain("-alpha."));
 

@@ -153,6 +153,17 @@ are reached as `this.Fake`.
 | `FluentGwt.Bogus` | [![FluentGwt.Bogus](https://img.shields.io/nuget/v/FluentGwt.Bogus?label=)](https://www.nuget.org/packages/FluentGwt.Bogus) | `x.Fake` and `x.Random` |
 | `FluentGwt.Moq` | [![FluentGwt.Moq](https://img.shields.io/nuget/v/FluentGwt.Moq?label=)](https://www.nuget.org/packages/FluentGwt.Moq) | `Services.Stub<Service>()`, a `Mock<Service>` that replaces every registration |
 
+### Redirecting HTTP
+
+```csharp
+x.Services.RedirectHttp<Weather>().RespondingWith(_ => new HttpResponseMessage(HttpStatusCode.OK));
+```
+
+`RedirectHttp<Client>()` takes the first type argument given to `AddHttpClient`: for
+`AddHttpClient<Weather, HttpWeather>()` that is `Weather`, which the client is named after.
+Naming a type that is not registered fails the test when the first client is created, rather than
+letting the request reach the network.
+
 ### Integration tests
 
 ```csharp

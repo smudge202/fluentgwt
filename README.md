@@ -1,5 +1,7 @@
 # FluentGwt
 
+[![NuGet](https://img.shields.io/nuget/v/FluentGwt?logo=nuget&label=nuget)](https://www.nuget.org/packages/FluentGwt)
+[![Downloads](https://img.shields.io/nuget/dt/FluentGwt?logo=nuget&label=downloads)](https://www.nuget.org/packages/FluentGwt)
 [![CI (dev)](https://github.com/smudge202/fluentgwt/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/smudge202/fluentgwt/actions/workflows/ci.yml?query=branch%3Adev)
 [![CI (main)](https://github.com/smudge202/fluentgwt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/smudge202/fluentgwt/actions/workflows/ci.yml?query=branch%3Amain)
 [![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue)](https://github.com/smudge202/fluentgwt/blob/main/LICENSE)
@@ -142,19 +144,21 @@ are reached as `this.Fake`.
 
 ## Packages
 
-| Package | Adds |
-|---|---|
-| `FluentGwt` | the chain, `ServiceFixture`, overrides, configuration, seeds, time, logging |
-| `FluentGwt.Xunit` | the test's cancellation token and identity, integration gating, `FixtureData`, test output |
-| `FluentGwt.Bogus` | `x.Fake` and `x.Random` |
-| `FluentGwt.Moq` | `Services.Stub<Service>()`, a `Mock<Service>` that replaces every registration |
+| Package | NuGet | Adds |
+|---|---|---|
+| `FluentGwt` | [![FluentGwt](https://img.shields.io/nuget/v/FluentGwt?label=)](https://www.nuget.org/packages/FluentGwt) | the chain, `ServiceFixture`, overrides, configuration, seeds, time, logging, and the FG0001–FG0003 analysers |
+| `FluentGwt.Xunit` | [![FluentGwt.Xunit](https://img.shields.io/nuget/v/FluentGwt.Xunit?label=)](https://www.nuget.org/packages/FluentGwt.Xunit) | the test's cancellation token and identity, integration gating, `FixtureData`, test output |
+| `FluentGwt.AspNetCore` | [![FluentGwt.AspNetCore](https://img.shields.io/nuget/v/FluentGwt.AspNetCore?label=)](https://www.nuget.org/packages/FluentGwt.AspNetCore) | `ApplicationHost`: the app under test, in memory or on real sockets, with stubbed authentication |
+| `FluentGwt.Http` | [![FluentGwt.Http](https://img.shields.io/nuget/v/FluentGwt.Http?label=)](https://www.nuget.org/packages/FluentGwt.Http) | `RedirectHttp`, sending `HttpClient` traffic to a host or handler of the test's choosing |
+| `FluentGwt.Bogus` | [![FluentGwt.Bogus](https://img.shields.io/nuget/v/FluentGwt.Bogus?label=)](https://www.nuget.org/packages/FluentGwt.Bogus) | `x.Fake` and `x.Random` |
+| `FluentGwt.Moq` | [![FluentGwt.Moq](https://img.shields.io/nuget/v/FluentGwt.Moq?label=)](https://www.nuget.org/packages/FluentGwt.Moq) | `Services.Stub<Service>()`, a `Mock<Service>` that replaces every registration |
 
 ### Integration tests
 
-`csharp
+```csharp
 [IntegrationFact(IntegrationJustification.NetworkIo, "Publishes to the real message bus")]
 public Task WhenOrderIsPublishedThenDispatchConsumesIt() => ...
-`
+```
 
 An integration test says what makes it one and why. It is reported as skipped unless the test
 project is built with `-p:FluentGwtIntegration=true`, which also defines `INTEGRATION` for code
@@ -163,7 +167,7 @@ services start before the act and stop at teardown.
 
 ### Theory data from the fixture
 
-`csharp
+```csharp
 public static TheoryData<FixtureRow<PlaceOrder>> InvalidOrders => new FixtureData<Fixture, PlaceOrder>
 {
 	{ "zero quantity", x => x.Order with { Quantity = 0 } },
@@ -177,7 +181,7 @@ public Task WhenOrderIsInvalidThenItIsRejected(FixtureRow<PlaceOrder> order)
 		.Given(order, (x, invalid) => x.Order = invalid)
 		.WhenPlacingOrder()
 		.Then(result => result.Status.Should().Be(PlacementStatus.Invalid));
-`
+```
 
 Rows display by label and are evaluated against the test's own fixture.
 

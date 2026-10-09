@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace FluentGwt.Tests;
@@ -21,9 +22,24 @@ public sealed partial class ServiceFixtureTests
 			.Then((x, time) => time.Should().BeSameAs(x.Subject.Time));
 
 	[Fact]
+	public Task WhenProductRegistersSystemTimeThenItReceivesTheFakeProvider()
+		=> Context
+			.Given(x => x.Subject.Services.TryAddSingleton(TimeProvider.System))
+			.Given(x => x.Subject.Services.AddSingleton<Stamper>())
+			.When(x => x.Subject.Resolve<Stamper>().Time)
+			.Then((x, time) => time.Should().BeSameAs(x.Subject.Time));
+
+	[Fact]
 	public Task WhenTestRegistersItsOwnTimeProviderThenItWins()
 		=> Context
-			.Given(x => x.Subject.Services.AddSingleton(TimeProvider.System).AddSingleton<Stamper>())
+			.Given(x => x.Subject.Services.AddSingleton<TimeProvider>(x.OwnTime).AddSingleton<Stamper>())
+			.When(x => x.Subject.Resolve<Stamper>().Time)
+			.Then((x, time) => time.Should().BeSameAs(x.OwnTime));
+
+	[Fact]
+	public Task WhenTestRegistersSystemTimeThroughAFactoryThenItWins()
+		=> Context
+			.Given(x => x.Subject.Services.AddSingleton<TimeProvider>(_ => TimeProvider.System).AddSingleton<Stamper>())
 			.When(x => x.Subject.Resolve<Stamper>().Time)
 			.Then(time => time.Should().BeSameAs(TimeProvider.System));
 

@@ -29,6 +29,20 @@ public sealed partial class HttpTests
 		}
 	}
 
+	internal interface Weather
+	{
+		Task<HttpStatusCode> Today(CancellationToken cancellationToken);
+	}
+
+	internal sealed class HttpWeather(HttpClient http) : Weather
+	{
+		public async Task<HttpStatusCode> Today(CancellationToken cancellationToken)
+		{
+			using var response = await http.GetAsync(ForecastClient.Forecast, cancellationToken);
+			return response.StatusCode;
+		}
+	}
+
 	internal sealed class StampingHandler : DelegatingHandler
 	{
 		public const string Header = "X-Stamp";

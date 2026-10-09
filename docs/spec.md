@@ -1210,6 +1210,14 @@ Client-library suites set a handler hook on the client's options to return a mal
 - `x.Services.RedirectHttp()` replaces the **primary** handler of every factory-created client;
   `RedirectHttp(name)` and `RedirectHttp<Client>()` limit it to one named or typed client.
   Delegating handlers and resilience handlers stay in place.
+- `RedirectHttp<Client>()` takes the first type argument given to `AddHttpClient`, because the
+  factory names a typed client after it: for `AddHttpClient<Abstraction, Implementation>()` that is
+  the abstraction. When no service of type `Client` is registered, creating any client fails the
+  test with an `InvalidOperationException` naming the redirection and every registered abstraction
+  `Client` implements, instead of leaving the real primary handler in place. The check runs when a
+  client is created, not when the redirection is declared, so the redirection may still precede
+  the product's registration. A plain named client registers nothing the check could find, so
+  `RedirectHttp(name)` is not checked.
 - The redirection target is one of: `RespondingWith(request => response)` (sync or async), a stub
   `HttpMessageHandler`, or a test host (C21).
 - Every redirected request is recorded; `x.Http.Requests` exposes them for assertions.
@@ -1246,6 +1254,9 @@ public Task WhenForecastIsFetchedThenUpstreamIsCalledOnce()
 - `WhenResilienceIsConfiguredThenRedirectionSitsBeneathIt`
 - `WhenRequestIsRedirectedThenItIsRecorded`
 - `WhenNoResponseMatchesThenTestFailsNamingTheRequest`
+- `WhenAbstractionOfTypedClientIsRedirectedThenTheStubAnswers`
+- `WhenImplementationOfTypedClientIsRedirectedThenTestFailsNamingTheAbstraction`
+- `WhenRedirectedClientIsNeverRegisteredThenTestFailsNamingIt`
 
 ### Coverage
 
@@ -1839,6 +1850,11 @@ controlling it.
 - It is registered as `TimeProvider` in the fixture container with `TryAdd`, so products that
   inject `TimeProvider` (including resilience pipelines) use it and a test that registers its own
   wins.
+- An unkeyed registration of the `TimeProvider.System` instance is replaced with it when the
+  container is built: a product's own composition commonly does
+  `TryAddSingleton(TimeProvider.System)`, and composed in a Given it registers before the fixture
+  can. The instance is all the fixture can see, so a test that wants the wall clock registers it
+  through a factory, `AddSingleton<TimeProvider>(_ => TimeProvider.System)`.
 - In every host it **overrides** the application's `TimeProvider` registration rather than using
   `TryAdd`: real applications register `TimeProvider.System` themselves, and the test must still
   control time.
@@ -1861,6 +1877,8 @@ public Task WhenReservationExpiresThenStockIsReleased()
 - `WhenFixtureIsCreatedThenTimeStartsAtSeededInstant`
 - `WhenProductInjectsTimeProviderThenItReceivesTheFakeProvider`
 - `WhenTestRegistersItsOwnTimeProviderThenItWins`
+- `WhenProductRegistersSystemTimeThenItReceivesTheFakeProvider`
+- `WhenTestRegistersSystemTimeThroughAFactoryThenItWins`
 - `WhenTimeIsAdvancedThenTimersFire`
 - `WhenHostIsStartedThenItSharesTheFixtureTime`
 - `WhenApplicationRegistersSystemTimeProviderThenHostStillUsesTheFixtureTime`

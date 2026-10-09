@@ -1850,6 +1850,11 @@ controlling it.
 - It is registered as `TimeProvider` in the fixture container with `TryAdd`, so products that
   inject `TimeProvider` (including resilience pipelines) use it and a test that registers its own
   wins.
+- An unkeyed registration of the `TimeProvider.System` instance is replaced with it when the
+  container is built: a product's own composition commonly does
+  `TryAddSingleton(TimeProvider.System)`, and composed in a Given it registers before the fixture
+  can. The instance is all the fixture can see, so a test that wants the wall clock registers it
+  through a factory, `AddSingleton<TimeProvider>(_ => TimeProvider.System)`.
 - In every host it **overrides** the application's `TimeProvider` registration rather than using
   `TryAdd`: real applications register `TimeProvider.System` themselves, and the test must still
   control time.
@@ -1872,6 +1877,8 @@ public Task WhenReservationExpiresThenStockIsReleased()
 - `WhenFixtureIsCreatedThenTimeStartsAtSeededInstant`
 - `WhenProductInjectsTimeProviderThenItReceivesTheFakeProvider`
 - `WhenTestRegistersItsOwnTimeProviderThenItWins`
+- `WhenProductRegistersSystemTimeThenItReceivesTheFakeProvider`
+- `WhenTestRegistersSystemTimeThroughAFactoryThenItWins`
 - `WhenTimeIsAdvancedThenTimersFire`
 - `WhenHostIsStartedThenItSharesTheFixtureTime`
 - `WhenApplicationRegistersSystemTimeProviderThenHostStillUsesTheFixtureTime`

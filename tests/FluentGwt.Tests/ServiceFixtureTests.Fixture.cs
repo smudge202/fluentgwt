@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Time.Testing;
 
 namespace FluentGwt.Tests;
 
@@ -13,6 +14,7 @@ public sealed partial class ServiceFixtureTests
 		public Clock Clock { get; } = new();
 		public Clock OtherClock { get; } = new();
 		public IConfiguration OwnConfiguration { get; } = new ConfigurationBuilder().Build();
+		public FakeTimeProvider OwnTime { get; } = new();
 		public TaskCompletionSource Entered { get; } = new();
 		public TaskCompletionSource Signal { get; } = new();
 		public Func<Task> Chain { get; set; } = () => Task.CompletedTask;

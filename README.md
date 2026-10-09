@@ -126,7 +126,10 @@ Derive the fixture from `ServiceFixture` to compose and resolve through a real c
   never hides the test's own: both together arrive as one `AggregateException`, the test's first.
 - `Configuration` reads `appsettings.json`, `appsettings.{environment}.json`, user secrets and
   environment variables; `Configure(key, value)` overrides a value for this fixture only.
-- `Time` is a `FakeTimeProvider` registered as `TimeProvider`; `Time.Advance(...)` moves it.
+- `Time` is a `FakeTimeProvider` registered as `TimeProvider`; `Time.Advance(...)` moves it. It
+  replaces a registration of `TimeProvider.System`, so a product that registers the wall clock
+  itself still runs on the fixture's. To keep the wall clock, register it through a factory:
+  `AddSingleton<TimeProvider>(_ => TimeProvider.System)`.
 - `Logs` captures every log record for assertions; warnings and above also go to the test output
   (`FluentGwt:LogLevel` changes that).
 

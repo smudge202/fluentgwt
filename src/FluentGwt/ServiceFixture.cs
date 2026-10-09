@@ -272,7 +272,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 			if (!_composed)
 			{
 				_services.TryAddSingleton(Configuration);
-				_services.TryAddSingleton<TimeProvider>(Time);
+				UseFixtureTime();
 				_services.AddLogging(logging => logging
 					.SetMinimumLevel(LogLevel.Trace)
 					.AddProvider(new FakeLoggerProvider(Logs))
@@ -285,6 +285,16 @@ public abstract class ServiceFixture : IAsyncDisposable
 				ValidateScopes = _validateScopes,
 			});
 		}
+	}
+
+	private void UseFixtureTime()
+	{
+		_services.TryAddSingleton<TimeProvider>(Time);
+		for (var i = 0; i < _services.Count; i++)
+			if (_services[i].ServiceType == typeof(TimeProvider)
+				&& !_services[i].IsKeyedService
+				&& ReferenceEquals(_services[i].ImplementationInstance, TimeProvider.System))
+				_services[i] = ServiceDescriptor.Singleton<TimeProvider>(Time);
 	}
 
 	private void ThrowIfResolved()

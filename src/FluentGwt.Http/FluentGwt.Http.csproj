@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<AssemblyName>FluentGwt.Http</AssemblyName>
+		<RootNamespace>FluentGwt</RootNamespace>
+		<Description>FluentGwt HTTP redirection: replace the primary handler of HttpClientFactory clients beneath their pipeline, and record every request.</Description>
+		<PackageTags>$(PackageTags);httpclient;httpclientfactory;http-mocking</PackageTags>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\FluentGwt\FluentGwt.csproj" PrivateAssets="none" />
+	</ItemGroup>
+
+</Project>

@@ -11,6 +11,7 @@ public sealed class TestAuthentication
 	private readonly ServiceFixture _fixture;
 	private readonly List<(string Type, Func<string> Value)> _claims = [];
 	private readonly List<string> _roles = [];
+	private readonly HashSet<string> _kept = new(StringComparer.Ordinal);
 	private readonly ConcurrentQueue<IssuedAuthentication> _issued = new();
 	private bool _authenticated;
 	private string? _onlyScheme;
@@ -29,6 +30,23 @@ public sealed class TestAuthentication
 	}
 
 	public IReadOnlyList<IssuedAuthentication> Issued => [.. _issued];
+
+	internal IReadOnlyList<string> Kept
+	{
+		get
+		{
+			lock (_lock)
+				return [.. _kept];
+		}
+	}
+
+	public TestAuthentication Keep(string scheme)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(scheme);
+		lock (_lock)
+			_kept.Add(scheme);
+		return this;
+	}
 
 	public TestAuthentication AuthenticateAs(string? scheme = null)
 	{

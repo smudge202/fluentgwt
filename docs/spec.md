@@ -1558,6 +1558,11 @@ so a test can show that the claims it gave reach the API's policies and are acte
   schemes, and the application's default-scheme selection therefore behave as written. The swap is
   made on the authentication options after the application's composition: the provider's own
   registration code runs unchanged; only its handler never runs.
+- `host.Authentication().Keep(scheme)` leaves that scheme's own handler in place, for credentials
+  the application issues and validates itself (API keys, tokens it mints) beside a stubbed
+  sign-in. A kept policy scheme runs its forwarding, so a request reaches a kept or a stubbed
+  scheme exactly as its selector decides. Keeping a name the application does not register fails
+  the host's start, naming the kept name and every registered scheme.
 - Where the application registers no scheme (a test-composed host), a stub scheme named
   `FluentGwt` is registered and made the default authenticate and challenge scheme.
 - A stub challenge answers 401 and a stub forbid answers 403; nothing redirects to a provider's
@@ -1654,6 +1659,13 @@ public Task WhenUserHasRoleAndTenantClaimThenInvoicesAreListed()
 - `WhenSchemesAreStubbedThenNoRequestReachesTheIdentityProvider`
 - `WhenApplicationRegistersNoSchemeThenStubSchemeIsTheDefault`
 - `WhenStubbedSchemeChallengesThenResponseIsUnauthorisedNotARedirect`
+- `WhenNoSchemeIsKeptThenEverySchemeIsStubbed`
+- `WhenSchemeIsKeptThenItsOwnHandlerAcceptsARealCredential`
+- `WhenSchemeIsKeptThenItsOwnHandlerRefusesAWrongCredential`
+- `WhenSchemeIsKeptThenOtherSchemesAreStillStubbed`
+- `WhenPolicySchemeIsKeptThenACredentialIsForwardedToTheKeptScheme`
+- `WhenPolicySchemeIsKeptThenARequestWithoutACredentialIsForwardedToTheStub`
+- `WhenKeptSchemeIsNotRegisteredThenArrangementFailsNamingTheSchemes`
 - `WhenUserIsGivenForOneSchemeThenOtherSchemesStayAnonymous`
 - `WhenSchemeDeclaresRoleClaimTypeThenGivenRoleSatisfiesRoleAuthorisation`
 - `WhenRequestIsAuthenticatedThenIssuedRecordsSchemeAndPrincipal`

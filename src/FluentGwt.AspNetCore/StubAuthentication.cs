@@ -5,6 +5,8 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -21,9 +23,12 @@ internal static class StubAuthentication
 		services.AddSingleton(authentication);
 		services.AddSingleton(provider => new SchemeClaimTypes(provider, replaced));
 		services.AddAuthentication();
+		services.TryAddEnumerable(ServiceDescriptor.Transient<IStartupFilter, AuthenticationOptionsCheck>());
 		services.PostConfigure<AuthenticationOptions>(options =>
 		{
-			foreach (var scheme in options.Schemes)
+			var kept = authentication.Kept;
+			ThrowIfUnregistered(kept, [.. options.Schemes.Select(x => x.Name)]);
+			foreach (var scheme in options.Schemes.Where(x => !kept.Contains(x.Name)))
 			{
 				if (scheme.HandlerType is { } original && original != typeof(StubAuthenticationHandler))
 					replaced[scheme.Name] = original;
@@ -37,6 +42,15 @@ internal static class StubAuthentication
 		var existing = services.LastOrDefault(x => x.ServiceType == typeof(IAuthorizationMiddlewareResultHandler) && !x.IsKeyedService);
 		services.RemoveAll<IAuthorizationMiddlewareResultHandler>();
 		services.AddSingleton<IAuthorizationMiddlewareResultHandler>(provider => new RecordingResultHandler(Inner(provider, existing), authorisation));
+	}
+
+	private static void ThrowIfUnregistered(IReadOnlyList<string> kept, IReadOnlyList<string> registered)
+	{
+		var unknown = kept.Where(x => !registered.Contains(x)).Order(StringComparer.Ordinal).ToList();
+		if (unknown.Count > 0)
+			throw new InvalidOperationException(
+				$"{string.Join(", ", unknown.Select(x => $"Keep(\"{x}\")"))} names no authentication scheme the application registers. "
+				+ $"It registers: {(registered.Count == 0 ? "none" : string.Join(", ", registered.Order(StringComparer.Ordinal)))}.");
 	}
 
 	private static IAuthorizationMiddlewareResultHandler Inner(IServiceProvider provider, ServiceDescriptor? existing) =>
@@ -95,6 +109,16 @@ internal static class StubAuthentication
 				if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(AuthenticationHandler<>))
 					return type.GetGenericArguments()[0];
 			return null;
+		}
+	}
+
+	[SuppressMessage("Performance", "CA1812", Justification = "Instantiated by the host from its IStartupFilter registration.")]
+	private sealed class AuthenticationOptionsCheck(IOptions<AuthenticationOptions> options) : IStartupFilter
+	{
+		public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+		{
+			_ = options.Value;
+			return next;
 		}
 	}
 

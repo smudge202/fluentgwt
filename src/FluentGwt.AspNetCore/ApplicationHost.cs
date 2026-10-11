@@ -152,12 +152,20 @@ public sealed partial class ApplicationHost : FixtureHost
 	public HttpClient CreateClient()
 	{
 		var running = Ensure();
-		return new(running.CreateHandler())
-		{
-			BaseAddress = running.Address,
-			DefaultRequestVersion = _protocols.HasFlag(HttpProtocols.Http2) ? HttpVersion.Version20 : HttpVersion.Version11,
-			DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
-		};
+		return Client(running, running.CreateHandler());
+	}
+
+	[SuppressMessage("Reliability", "CA2000", Justification = "The client owns the handler and disposes it with itself.")]
+	public HttpClient CreateClient(Action<TestUser> user)
+	{
+		ArgumentNullException.ThrowIfNull(user);
+		var running = Ensure();
+		TestAuthentication authentication;
+		lock (_lock)
+			authentication = _authentication
+				?? throw new InvalidOperationException(
+					$"A client bound to a user needs the {Name} host's stubbed authentication. Arrange it in a given with x.{Name}.Authentication() or GivenAuthenticatedUser().");
+		return Client(running, new BoundUserHandler(authentication.Bind(user)) { InnerHandler = running.CreateHandler() });
 	}
 
 	public Task<WebSocket> ConnectWebSocket(string path, CancellationToken cancellationToken)
@@ -204,6 +212,14 @@ public sealed partial class ApplicationHost : FixtureHost
 		lock (_lock)
 			return _running ??= _start(this);
 	}
+
+	private HttpClient Client(Running running, HttpMessageHandler handler) =>
+		new(handler)
+		{
+			BaseAddress = running.Address,
+			DefaultRequestVersion = _protocols.HasFlag(HttpProtocols.Http2) ? HttpVersion.Version20 : HttpVersion.Version11,
+			DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
+		};
 
 	private ApplicationHost Arranging(Action change)
 	{
@@ -356,6 +372,16 @@ public sealed partial class ApplicationHost : FixtureHost
 		public Task<WebSocket> ConnectWebSocket(Uri target, CancellationToken cancellationToken) => connectWebSocket(target, cancellationToken);
 
 		public ValueTask Dispose() => dispose();
+	}
+
+	private sealed class BoundUserHandler(string user) : DelegatingHandler
+	{
+		protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+		{
+			request.Headers.Remove(TestAuthentication.UserHeader);
+			request.Headers.Add(TestAuthentication.UserHeader, user);
+			return base.SendAsync(request, cancellationToken);
+		}
 	}
 
 	private sealed class PipelineFilter(IReadOnlyList<Action<IApplicationBuilder>> pipeline) : IStartupFilter

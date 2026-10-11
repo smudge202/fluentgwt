@@ -25,6 +25,17 @@ public sealed partial class SocketHostTests
 			.Then(greeting => greeting.Should().Be("Hello"));
 
 	[Fact]
+	public Task WhenClientBoundToAUserCallsAHostOnSocketsThenTheRequestIsMadeAsThatUser()
+		=> Context
+			.Given(x => x.Relay.Authentication())
+			.When(async (x, cancellationToken) =>
+			{
+				using var alice = x.Relay.CreateClient(user => user.Claim("user", "alice"));
+				return await alice.GetStringAsync(new Uri("/me", UriKind.Relative), cancellationToken);
+			})
+			.Then(claims => claims.Should().Contain("user=alice"));
+
+	[Fact]
 	public Task WhenHostRunsOnSocketsThenClientTrustsOnlyItsCertificate()
 		=> Context
 			.Given()

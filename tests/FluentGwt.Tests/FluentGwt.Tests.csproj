@@ -36,6 +36,9 @@
 		<Compile Update="GivenTests.*.cs">
 			<DependentUpon>GivenTests.cs</DependentUpon>
 		</Compile>
+		<Compile Update="ClientUserTests.*.cs">
+			<DependentUpon>ClientUserTests.cs</DependentUpon>
+		</Compile>
 		<Compile Update="KeptSchemeTests.*.cs">
 			<DependentUpon>KeptSchemeTests.cs</DependentUpon>
 		</Compile>

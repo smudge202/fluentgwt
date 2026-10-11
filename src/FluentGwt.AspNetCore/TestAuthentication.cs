@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Security.Claims;
 
 namespace FluentGwt;
@@ -7,12 +8,15 @@ public sealed class TestAuthentication
 {
 	public const string DefaultScheme = "FluentGwt";
 
+	internal const string UserHeader = "X-FluentGwt-User";
+
 	private readonly Lock _lock = new();
 	private readonly ServiceFixture _fixture;
-	private readonly List<(string Type, Func<string> Value)> _claims = [];
-	private readonly List<string> _roles = [];
 	private readonly HashSet<string> _kept = new(StringComparer.Ordinal);
 	private readonly ConcurrentQueue<IssuedAuthentication> _issued = new();
+	private readonly ConcurrentDictionary<string, TestUser> _bound = new(StringComparer.Ordinal);
+	private TestUser _user = new();
+	private int _boundUsers;
 	private bool _authenticated;
 	private string? _onlyScheme;
 
@@ -24,7 +28,7 @@ public sealed class TestAuthentication
 		{
 			lock (_lock)
 				return _authenticated
-					? Build(DefaultScheme, ClaimsIdentity.DefaultNameClaimType, ClaimsIdentity.DefaultRoleClaimType)
+					? _user.Build(DefaultScheme, ClaimsIdentity.DefaultNameClaimType, ClaimsIdentity.DefaultRoleClaimType, HostNameIdentifier)
 					: new ClaimsPrincipal(new ClaimsIdentity());
 		}
 	}
@@ -39,6 +43,8 @@ public sealed class TestAuthentication
 				return [.. _kept];
 		}
 	}
+
+	private string HostNameIdentifier => $"user-{_fixture.TestId}";
 
 	public TestAuthentication Keep(string scheme)
 	{
@@ -66,11 +72,9 @@ public sealed class TestAuthentication
 
 	public TestAuthentication Claim(string type, Func<string> value)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(type);
-		ArgumentNullException.ThrowIfNull(value);
 		lock (_lock)
 		{
-			_claims.Add((type, value));
+			_user.Claim(type, value);
 			_authenticated = true;
 		}
 		return this;
@@ -78,10 +82,9 @@ public sealed class TestAuthentication
 
 	public TestAuthentication Role(string role)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(role);
 		lock (_lock)
 		{
-			_roles.Add(role);
+			_user.Role(role);
 			_authenticated = true;
 		}
 		return this;
@@ -93,33 +96,35 @@ public sealed class TestAuthentication
 		{
 			_authenticated = false;
 			_onlyScheme = null;
-			_claims.Clear();
-			_roles.Clear();
+			_user = new();
 		}
 		return this;
 	}
 
-	internal ClaimsPrincipal? Authenticate(string scheme, string nameType, string roleType, string path)
+	internal string Bind(Action<TestUser> configure)
+	{
+		var user = new TestUser();
+		configure(user);
+		var id = Interlocked.Increment(ref _boundUsers).ToString(CultureInfo.InvariantCulture);
+		_bound[id] = user;
+		return id;
+	}
+
+	internal ClaimsPrincipal? Authenticate(string scheme, string nameType, string roleType, string path, string? boundUser)
 	{
 		ClaimsPrincipal principal;
-		lock (_lock)
+		if (boundUser is not null && _bound.TryGetValue(boundUser, out var bound))
+			principal = bound.Build(scheme, nameType, roleType, $"{HostNameIdentifier}-{boundUser}");
+		else
 		{
-			if (!_authenticated || (_onlyScheme is not null && _onlyScheme != scheme))
-				return null;
-			principal = Build(scheme, nameType, roleType);
+			lock (_lock)
+			{
+				if (!_authenticated || (_onlyScheme is not null && _onlyScheme != scheme))
+					return null;
+				principal = _user.Build(scheme, nameType, roleType, HostNameIdentifier);
+			}
 		}
 		_issued.Enqueue(new(scheme, principal, path));
 		return principal;
-	}
-
-	private ClaimsPrincipal Build(string scheme, string nameType, string roleType)
-	{
-		var identity = new ClaimsIdentity(scheme, nameType, roleType);
-		identity.AddClaim(new(ClaimTypes.NameIdentifier, $"user-{_fixture.TestId}"));
-		foreach (var (type, value) in _claims)
-			identity.AddClaim(new(type, value()));
-		foreach (var role in _roles)
-			identity.AddClaim(new(roleType, role));
-		return new(identity);
 	}
 }

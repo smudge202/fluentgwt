@@ -1558,6 +1558,26 @@ so a test can show that the claims it gave reach the API's policies and are acte
   schemes, and the application's default-scheme selection therefore behave as written. The swap is
   made on the authentication options after the application's composition: the provider's own
   registration code runs unchanged; only its handler never runs.
+- `host.Authentication().Keep(scheme)` leaves that scheme's own handler in place, for credentials
+  the application issues and validates itself (API keys, tokens it mints) beside a stubbed
+  sign-in. A kept policy scheme runs its forwarding, so a request reaches a kept or a stubbed
+  scheme exactly as its selector decides. Keeping a name the application does not register fails
+  the host's start, naming the kept name and every registered scheme.
+- `host.CreateClient(user => user.Claim(...).Role(...))` returns a client bound to its own
+  `TestUser`: every request it makes authenticates as that user under every stubbed scheme,
+  whatever the host-wide principal is, so several actors can act in one test, concurrently.
+  The binding travels as a request header that middleware placed ahead of the application's
+  pipeline removes, so the application never sees it; it works in memory and on sockets. Each
+  bound user gets its own name identifier unless the test gives one. A client created without a
+  user keeps the host-wide principal. A bound client needs the host's stubbed authentication and
+  fails naming `Authentication()` without it. WebSocket connections are not bound.
+- A stubbed scheme accepts `SignInAsync` and `SignOutAsync`, so the application's own sign-in
+  and sign-out endpoints complete. Each is recorded on `host.Authentication()` — `SignIns` with
+  the scheme, the principal the application signed in, its `AuthenticationProperties` and the
+  path; `SignOuts` with the scheme, the properties and the path — and changes nothing else: the
+  stubbed user stays whatever the test arranged, because the test, not the application, decides
+  who is signed in, and a sign-in that changed the host-wide user would change every client.
+  Nothing is redirected; a `RedirectUri` the application set is in the recorded properties.
 - Where the application registers no scheme (a test-composed host), a stub scheme named
   `FluentGwt` is registered and made the default authenticate and challenge scheme.
 - A stub challenge answers 401 and a stub forbid answers 403; nothing redirects to a provider's
@@ -1654,6 +1674,26 @@ public Task WhenUserHasRoleAndTenantClaimThenInvoicesAreListed()
 - `WhenSchemesAreStubbedThenNoRequestReachesTheIdentityProvider`
 - `WhenApplicationRegistersNoSchemeThenStubSchemeIsTheDefault`
 - `WhenStubbedSchemeChallengesThenResponseIsUnauthorisedNotARedirect`
+- `WhenNoSchemeIsKeptThenEverySchemeIsStubbed`
+- `WhenSchemeIsKeptThenItsOwnHandlerAcceptsARealCredential`
+- `WhenSchemeIsKeptThenItsOwnHandlerRefusesAWrongCredential`
+- `WhenSchemeIsKeptThenOtherSchemesAreStillStubbed`
+- `WhenPolicySchemeIsKeptThenACredentialIsForwardedToTheKeptScheme`
+- `WhenPolicySchemeIsKeptThenARequestWithoutACredentialIsForwardedToTheStub`
+- `WhenKeptSchemeIsNotRegisteredThenArrangementFailsNamingTheSchemes`
+- `WhenTwoClientsAreBoundToTwoPeopleThenEachRequestIsMadeAsItsOwnPerson`
+- `WhenTwoClientsAreBoundThenEachUserHasItsOwnNameIdentifier`
+- `WhenAClientIsCreatedWithoutAUserThenItUsesTheHostUser`
+- `WhenABoundUserHasARoleThenRoleAuthorisationSeesIt`
+- `WhenABoundClientMakesARequestThenTheApplicationNeverSeesTheUserHeader`
+- `WhenABoundClientIsAuthenticatedThenIssuedRecordsItsPrincipal`
+- `WhenABoundClientIsCreatedWithoutStubbedAuthenticationThenItFailsNamingTheFix`
+- `WhenClientBoundToAUserCallsAHostOnSocketsThenTheRequestIsMadeAsThatUser`
+- `WhenAnEndpointSignsInThroughAStubbedSchemeThenItCompletes`
+- `WhenAnEndpointSignsInThroughAStubbedSchemeThenTheSignInIsRecorded`
+- `WhenAnEndpointSignsOutThroughAStubbedSchemeThenItCompletesAndIsRecorded`
+- `WhenAnEndpointSignsInThenTheStubbedUserIsUnchanged`
+- `WhenAnEndpointSignsOutThenTheStubbedUserIsUnchanged`
 - `WhenUserIsGivenForOneSchemeThenOtherSchemesStayAnonymous`
 - `WhenSchemeDeclaresRoleClaimTypeThenGivenRoleSatisfiesRoleAuthorisation`
 - `WhenRequestIsAuthenticatedThenIssuedRecordsSchemeAndPrincipal`

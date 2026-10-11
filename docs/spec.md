@@ -1563,6 +1563,14 @@ so a test can show that the claims it gave reach the API's policies and are acte
   sign-in. A kept policy scheme runs its forwarding, so a request reaches a kept or a stubbed
   scheme exactly as its selector decides. Keeping a name the application does not register fails
   the host's start, naming the kept name and every registered scheme.
+- `host.CreateClient(user => user.Claim(...).Role(...))` returns a client bound to its own
+  `TestUser`: every request it makes authenticates as that user under every stubbed scheme,
+  whatever the host-wide principal is, so several actors can act in one test, concurrently.
+  The binding travels as a request header that middleware placed ahead of the application's
+  pipeline removes, so the application never sees it; it works in memory and on sockets. Each
+  bound user gets its own name identifier unless the test gives one. A client created without a
+  user keeps the host-wide principal. A bound client needs the host's stubbed authentication and
+  fails naming `Authentication()` without it. WebSocket connections are not bound.
 - Where the application registers no scheme (a test-composed host), a stub scheme named
   `FluentGwt` is registered and made the default authenticate and challenge scheme.
 - A stub challenge answers 401 and a stub forbid answers 403; nothing redirects to a provider's
@@ -1666,6 +1674,14 @@ public Task WhenUserHasRoleAndTenantClaimThenInvoicesAreListed()
 - `WhenPolicySchemeIsKeptThenACredentialIsForwardedToTheKeptScheme`
 - `WhenPolicySchemeIsKeptThenARequestWithoutACredentialIsForwardedToTheStub`
 - `WhenKeptSchemeIsNotRegisteredThenArrangementFailsNamingTheSchemes`
+- `WhenTwoClientsAreBoundToTwoPeopleThenEachRequestIsMadeAsItsOwnPerson`
+- `WhenTwoClientsAreBoundThenEachUserHasItsOwnNameIdentifier`
+- `WhenAClientIsCreatedWithoutAUserThenItUsesTheHostUser`
+- `WhenABoundUserHasARoleThenRoleAuthorisationSeesIt`
+- `WhenABoundClientMakesARequestThenTheApplicationNeverSeesTheUserHeader`
+- `WhenABoundClientIsAuthenticatedThenIssuedRecordsItsPrincipal`
+- `WhenABoundClientIsCreatedWithoutStubbedAuthenticationThenItFailsNamingTheFix`
+- `WhenClientBoundToAUserCallsAHostOnSocketsThenTheRequestIsMadeAsThatUser`
 - `WhenUserIsGivenForOneSchemeThenOtherSchemesStayAnonymous`
 - `WhenSchemeDeclaresRoleClaimTypeThenGivenRoleSatisfiesRoleAuthorisation`
 - `WhenRequestIsAuthenticatedThenIssuedRecordsSchemeAndPrincipal`

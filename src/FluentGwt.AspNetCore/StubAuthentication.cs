@@ -24,6 +24,7 @@ internal static class StubAuthentication
 		services.AddSingleton(provider => new SchemeClaimTypes(provider, replaced));
 		services.AddAuthentication();
 		services.TryAddEnumerable(ServiceDescriptor.Transient<IStartupFilter, AuthenticationOptionsCheck>());
+		services.TryAddEnumerable(ServiceDescriptor.Transient<IStartupFilter, BoundUserFilter>());
 		services.PostConfigure<AuthenticationOptions>(options =>
 		{
 			var kept = authentication.Kept;
@@ -74,7 +75,7 @@ internal static class StubAuthentication
 		protected override Task<AuthenticateResult> HandleAuthenticateAsync()
 		{
 			var (nameType, roleType) = claimTypes.For(Scheme.Name);
-			var principal = authentication.Authenticate(Scheme.Name, nameType, roleType, Request.Path.Value ?? string.Empty);
+			var principal = authentication.Authenticate(Scheme.Name, nameType, roleType, Request.Path.Value ?? string.Empty, Context.Items[BoundUserFilter.Key] as string);
 			return Task.FromResult(principal is null
 				? AuthenticateResult.NoResult()
 				: AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name)));
@@ -110,6 +111,24 @@ internal static class StubAuthentication
 					return type.GetGenericArguments()[0];
 			return null;
 		}
+	}
+
+	[SuppressMessage("Performance", "CA1812", Justification = "Instantiated by the host from its IStartupFilter registration.")]
+	private sealed class BoundUserFilter : IStartupFilter
+	{
+		public static readonly object Key = new();
+
+		public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) =>
+			app =>
+			{
+				app.Use((context, following) =>
+				{
+					if (context.Request.Headers.Remove(TestAuthentication.UserHeader, out var user))
+						context.Items[Key] = user.ToString();
+					return following(context);
+				});
+				next(app);
+			};
 	}
 
 	[SuppressMessage("Performance", "CA1812", Justification = "Instantiated by the host from its IStartupFilter registration.")]

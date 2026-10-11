@@ -48,6 +48,39 @@ public sealed partial class GivenTests
 			.Then(chain => chain.Should().NotBeNull());
 
 	[Fact]
+	public Task WhenTargetIsGivenASynchronousMethodGroupThenItRuns()
+		=> Context
+			.Given()
+			.When(async x =>
+			{
+				await x.Subject.Given(Subject.Arrange).When(_ => { }).Then(_ => { });
+				return x.Subject.Part;
+			})
+			.Then(part => part.Should().NotBeNull());
+
+	[Fact]
+	public Task WhenTargetIsGivenAValueTaskMethodGroupThenItRuns()
+		=> Context
+			.Given()
+			.When(async x =>
+			{
+				await x.Subject.Given(Subject.ArrangeLater).When(_ => { }).Then(_ => { });
+				return x.Subject.Part;
+			})
+			.Then(part => part.Should().NotBeNull());
+
+	[Fact]
+	public Task WhenTargetIsGivenACancellableValueTaskMethodGroupThenItRuns()
+		=> Context
+			.Given()
+			.When(async x =>
+			{
+				await x.Subject.Given(Subject.ArrangeCancellably).When(_ => { }).Then(_ => { });
+				return x.Subject.Part;
+			})
+			.Then(part => part.Should().NotBeNull());
+
+	[Fact]
 	public Task WhenTargetIsGivenThenItIsTheDefaultState()
 		=> Context
 			.Given()

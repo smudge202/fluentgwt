@@ -7,7 +7,7 @@ public static class GivenExtensions
 	public static Given<Target> Given<Target>(this Target target) =>
 		new(target);
 
-	[OverloadResolutionPriority(-1)]
+	[OverloadResolutionPriority(-3)]
 	public static Given<Target> Given<Target, Value>(this Target target, Value state)
 	{
 		if (typeof(Target) == typeof(Value))

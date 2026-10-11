@@ -313,6 +313,10 @@ New:
   later state given replaces earlier state before any reader that runs after it).
 - Transitions may take the cancellation token (C8).
 - Transitions on a `ServiceFixture` target receive the fixture.
+- A delegate whose signature is a transition's is a transition, whether it is a lambda, a method
+  group or a delegate value, and whether it is the first Given or a later one. A method group has a
+  natural delegate type, so it also fits `Given(value)`; on the target, that state overload is
+  ranked below every transition overload so it never wins.
 
 ### Example
 
@@ -336,6 +340,9 @@ null-key rejection, deferral, ordered execution). Additionally:
 - `WhenTransitionsAreDeclaredThenNoneRunBeforeExecution`
 - `WhenStateAndTransitionsInterleaveThenTheyApplyInDeclarationOrder`
 - `WhenTransitionTakesCancellationThenItReceivesTheTestToken`
+- `WhenTargetIsGivenASynchronousMethodGroupThenItRuns`
+- `WhenTargetIsGivenAValueTaskMethodGroupThenItRuns`
+- `WhenTargetIsGivenACancellableValueTaskMethodGroupThenItRuns`
 
 ### Coverage
 

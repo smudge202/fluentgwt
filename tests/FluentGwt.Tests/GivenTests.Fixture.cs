@@ -19,6 +19,20 @@ public sealed partial class GivenTests
 	{
 		public Part? Part { get; set; }
 
+		public static void Arrange(Subject subject) => subject.Part = new();
+
+		public static ValueTask ArrangeLater(Subject subject)
+		{
+			subject.Part = new();
+			return ValueTask.CompletedTask;
+		}
+
+		public static ValueTask ArrangeCancellably(Subject subject, CancellationToken cancellationToken)
+		{
+			subject.Part = new();
+			return ValueTask.CompletedTask;
+		}
+
 		public static async Task<Part> NewPartLater()
 		{
 			await Task.Yield();

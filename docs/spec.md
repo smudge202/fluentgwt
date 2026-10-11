@@ -2314,8 +2314,23 @@ without a model there is no place for unreleased work to collect.
 | `main` | released code; every commit on it is a published version | — | — |
 | `dev` | integration; the repository's **default** branch; every push builds and publishes an alpha prerelease (D4) | `main` | `release/*` |
 | `feature/*` | one capability or change | `dev` | `dev`, by pull request |
-| `release/x.y.z` | stabilising a version | `dev` | `main`, then back into `dev` |
-| `hotfix/x.y.z` | an urgent fix to a release | `main` | `main`, then back into `dev` |
+| `release/x.y.z` | stabilising a version | `dev` | `main`; once `main` is tagged, `main` merges into `dev` |
+| `hotfix/x.y.z` | an urgent fix to a release | `main` | `main`; once `main` is tagged, `main` merges into `dev` |
+
+It is `main` that merges back, not the release or hotfix branch: the tag is on `main`'s merge
+commit, and `dev` must contain that commit for MinVer to see the tag (D4). A pull request from
+`main` itself cannot land, because `dev` requires its head to be up to date and updating `main`
+from `dev` is refused. So the merge is made on a branch cut from `dev`:
+
+```
+git switch -c sync/vx.y.z origin/dev
+git merge --no-ff origin/main
+git push -u origin sync/vx.y.z
+```
+
+then a pull request from `sync/vx.y.z` into `dev`, merged with a merge commit; a squash or rebase
+drops `main`'s merge commit and the tag with it. Keeping `dev` containing `main` also keeps the next
+release branch up to date with `main`, which `main` requires in the same way.
 
 The integration branch is named `dev`, not `develop` (ruling 23). Feature branches target `dev`,
 and because `dev` is the default branch, a pull request opened without choosing a base targets it
@@ -2365,13 +2380,18 @@ ignored; and unreleased work on `dev` should be installable without claiming a r
   local or CI build never claims a released number. `MinVerDefaultPreReleaseIdentifiers` is
   `alpha`, so MinVer appends the height — the commit count since the last tag — giving
   `x.y.z-alpha.N`. MinVer reads tags only, which suits gitflow: the version decision is the tag
-  made when a release branch lands on `main`.
+  made when a release branch lands on `main`. It reads only tags reachable from the commit being
+  built, so a `dev` that has not had `main` merged back since the last release builds
+  `0.0.0-alpha.0.N`, below every release.
 - **Prereleases from `dev` go to GitHub Packages** (ruling 23). An `alpha` job in `ci.yml` — not a
   separate workflow, which could not depend on CI's result — runs on every push to `dev` (a merged
   pull request), only after the build job has passed, and:
   1. relies on the build job's build and both test runs of that commit;
   2. packs in `Release`, so every package is `x.y.z-alpha.N`;
-  3. pushes every `.nupkg` to `https://nuget.pkg.github.com/smudge202/index.json` with the
+  3. fails, before pushing anything, unless the packed version's `x.y.z` is above the newest `v*`
+     tag, so a missed merge of `main` into `dev` stops the publish instead of publishing below the
+     last release;
+  4. pushes every `.nupkg` to `https://nuget.pkg.github.com/smudge202/index.json` with the
      workflow's own `GITHUB_TOKEN`, under `permissions: contents: read, packages: write`, without
      symbols (GitHub Packages does not take `.snupkg`). No secret is stored.
 
@@ -2399,7 +2419,7 @@ ignored; and unreleased work on `dev` should be installable without claiming a r
   deployment rule admits only `v*` tags, so no other ref or workflow can use it, or the OIDC identity
   the Trusted Publishing policy trusts.
 - Releasing is therefore: merge `release/x.y.z` into `main` → tag `vx.y.z` on `main` → approve the
-  `nuget` environment.
+  `nuget` environment → merge `main` into `dev` through a `sync/vx.y.z` branch (D3).
 - **Trusted Publishing setup (owner)**, performed once from these steps before the first release:
   1. Sign in to nuget.org as the account that will own the packages; from the account menu open
      **Trusted Publishing** and add a policy.

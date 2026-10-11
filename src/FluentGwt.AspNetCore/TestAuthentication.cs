@@ -14,6 +14,8 @@ public sealed class TestAuthentication
 	private readonly ServiceFixture _fixture;
 	private readonly HashSet<string> _kept = new(StringComparer.Ordinal);
 	private readonly ConcurrentQueue<IssuedAuthentication> _issued = new();
+	private readonly ConcurrentQueue<RecordedSignIn> _signIns = new();
+	private readonly ConcurrentQueue<RecordedSignOut> _signOuts = new();
 	private readonly ConcurrentDictionary<string, TestUser> _bound = new(StringComparer.Ordinal);
 	private TestUser _user = new();
 	private int _boundUsers;
@@ -34,6 +36,10 @@ public sealed class TestAuthentication
 	}
 
 	public IReadOnlyList<IssuedAuthentication> Issued => [.. _issued];
+
+	public IReadOnlyList<RecordedSignIn> SignIns => [.. _signIns];
+
+	public IReadOnlyList<RecordedSignOut> SignOuts => [.. _signOuts];
 
 	internal IReadOnlyList<string> Kept
 	{
@@ -100,6 +106,10 @@ public sealed class TestAuthentication
 		}
 		return this;
 	}
+
+	internal void Record(RecordedSignIn signIn) => _signIns.Enqueue(signIn);
+
+	internal void Record(RecordedSignOut signOut) => _signOuts.Enqueue(signOut);
 
 	internal string Bind(Action<TestUser> configure)
 	{

@@ -70,15 +70,29 @@ internal static class StubAuthentication
 		UrlEncoder encoder,
 		TestAuthentication authentication,
 		SchemeClaimTypes claimTypes)
-		: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+		: SignInAuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 	{
+		private string Path => Request.Path.Value ?? string.Empty;
+
 		protected override Task<AuthenticateResult> HandleAuthenticateAsync()
 		{
 			var (nameType, roleType) = claimTypes.For(Scheme.Name);
-			var principal = authentication.Authenticate(Scheme.Name, nameType, roleType, Request.Path.Value ?? string.Empty, Context.Items[BoundUserFilter.Key] as string);
+			var principal = authentication.Authenticate(Scheme.Name, nameType, roleType, Path, Context.Items[BoundUserFilter.Key] as string);
 			return Task.FromResult(principal is null
 				? AuthenticateResult.NoResult()
 				: AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name)));
+		}
+
+		protected override Task HandleSignInAsync(ClaimsPrincipal user, AuthenticationProperties? properties)
+		{
+			authentication.Record(new RecordedSignIn(Scheme.Name, user, properties, Path));
+			return Task.CompletedTask;
+		}
+
+		protected override Task HandleSignOutAsync(AuthenticationProperties? properties)
+		{
+			authentication.Record(new RecordedSignOut(Scheme.Name, properties, Path));
+			return Task.CompletedTask;
 		}
 	}
 

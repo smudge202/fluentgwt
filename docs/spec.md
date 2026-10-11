@@ -1571,6 +1571,13 @@ so a test can show that the claims it gave reach the API's policies and are acte
   bound user gets its own name identifier unless the test gives one. A client created without a
   user keeps the host-wide principal. A bound client needs the host's stubbed authentication and
   fails naming `Authentication()` without it. WebSocket connections are not bound.
+- A stubbed scheme accepts `SignInAsync` and `SignOutAsync`, so the application's own sign-in
+  and sign-out endpoints complete. Each is recorded on `host.Authentication()` — `SignIns` with
+  the scheme, the principal the application signed in, its `AuthenticationProperties` and the
+  path; `SignOuts` with the scheme, the properties and the path — and changes nothing else: the
+  stubbed user stays whatever the test arranged, because the test, not the application, decides
+  who is signed in, and a sign-in that changed the host-wide user would change every client.
+  Nothing is redirected; a `RedirectUri` the application set is in the recorded properties.
 - Where the application registers no scheme (a test-composed host), a stub scheme named
   `FluentGwt` is registered and made the default authenticate and challenge scheme.
 - A stub challenge answers 401 and a stub forbid answers 403; nothing redirects to a provider's
@@ -1682,6 +1689,11 @@ public Task WhenUserHasRoleAndTenantClaimThenInvoicesAreListed()
 - `WhenABoundClientIsAuthenticatedThenIssuedRecordsItsPrincipal`
 - `WhenABoundClientIsCreatedWithoutStubbedAuthenticationThenItFailsNamingTheFix`
 - `WhenClientBoundToAUserCallsAHostOnSocketsThenTheRequestIsMadeAsThatUser`
+- `WhenAnEndpointSignsInThroughAStubbedSchemeThenItCompletes`
+- `WhenAnEndpointSignsInThroughAStubbedSchemeThenTheSignInIsRecorded`
+- `WhenAnEndpointSignsOutThroughAStubbedSchemeThenItCompletesAndIsRecorded`
+- `WhenAnEndpointSignsInThenTheStubbedUserIsUnchanged`
+- `WhenAnEndpointSignsOutThenTheStubbedUserIsUnchanged`
 - `WhenUserIsGivenForOneSchemeThenOtherSchemesStayAnonymous`
 - `WhenSchemeDeclaresRoleClaimTypeThenGivenRoleSatisfiesRoleAuthorisation`
 - `WhenRequestIsAuthenticatedThenIssuedRecordsSchemeAndPrincipal`

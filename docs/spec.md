@@ -1859,6 +1859,16 @@ controlling it.
   `TryAdd`: real applications register `TimeProvider.System` themselves, and the test must still
   control time.
 - `x.Time.Advance(...)` moves time forward within any step.
+- A step blocked on `x.Time` fails rather than hanging. Each Given, host start, hosted-service
+  start and the act is a step. When a timer created on `x.Time` during the current step is still
+  pending, and no timer on `x.Time` has fired, for `FluentGwt:FrozenTimeLimit` seconds of real time
+  (default 5), the test fails with a `TimeoutException` naming the timer's due time and both ways
+  out: advance `x.Time`, or register the wall clock through a factory. Timers left pending by an
+  earlier step, such as a hosted service's loop, do not count, because the fixture cannot tell
+  whether the step is waiting on them. `0` turns the check off; it is skipped while a debugger is
+  attached. A step that does real work for longer than the limit while a timer of its own is
+  pending on `x.Time`, such as a slow real call under a timeout, fails the same way; raise the
+  limit for it.
 
 ### Example
 
@@ -1879,6 +1889,10 @@ public Task WhenReservationExpiresThenStockIsReleased()
 - `WhenTestRegistersItsOwnTimeProviderThenItWins`
 - `WhenProductRegistersSystemTimeThenItReceivesTheFakeProvider`
 - `WhenTestRegistersSystemTimeThroughAFactoryThenItWins`
+- `WhenStepWaitsOnFixtureTimeThenTestFailsNamingTheWayOut`
+- `WhenStepAdvancesFixtureTimeThenTheWaitCompletes`
+- `WhenTimerFromAnEarlierStepIsPendingThenARealWaitIsNotFailed`
+- `WhenFrozenTimeLimitIsZeroThenAStepWaitingWithAPendingTimerIsNotFailed`
 - `WhenTimeIsAdvancedThenTimersFire`
 - `WhenHostIsStartedThenItSharesTheFixtureTime`
 - `WhenApplicationRegistersSystemTimeProviderThenHostStillUsesTheFixtureTime`

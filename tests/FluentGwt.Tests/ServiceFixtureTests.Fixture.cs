@@ -5,6 +5,8 @@ namespace FluentGwt.Tests;
 
 public sealed partial class ServiceFixtureTests
 {
+	private const string FrozenTimeLimit = "FluentGwt:FrozenTimeLimit";
+
 	private Fixture Context { get; } = new();
 
 	internal sealed class Fixture
@@ -69,6 +71,17 @@ public sealed partial class ServiceFixtureTests
 	internal sealed class Stamper(TimeProvider time)
 	{
 		public TimeProvider Time => time;
+	}
+
+	internal sealed class Poller(TimeProvider time)
+	{
+		public static TimeSpan Interval { get; } = TimeSpan.FromMilliseconds(10);
+
+		public async Task<int> Poll(CancellationToken cancellationToken)
+		{
+			await Task.Delay(Interval, time, cancellationToken);
+			return 1;
+		}
 	}
 
 	internal sealed class Calendar;

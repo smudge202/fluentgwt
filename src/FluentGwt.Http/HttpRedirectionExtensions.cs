@@ -21,8 +21,28 @@ public static class HttpRedirectionExtensions
 		return Redirect(services, name);
 	}
 
-	public static HttpRedirection RedirectHttp<Client>(this IServiceCollection services) where Client : class =>
-		Redirect(services, new ServiceCollection().AddHttpClient<Client>().Name);
+	public static HttpRedirection RedirectHttp<Client>(this IServiceCollection services) where Client : class
+	{
+		var redirection = Redirect(services, new ServiceCollection().AddHttpClient<Client>().Name);
+		services.PostConfigureAll<HttpClientFactoryOptions>(_ => EnsureRegistered(services, typeof(Client)));
+		return redirection;
+	}
+
+	private static void EnsureRegistered(IServiceCollection services, Type client)
+	{
+		if (services.Any(x => x.ServiceType == client))
+			return;
+		var abstractions = services
+			.Select(x => x.ServiceType)
+			.Where(x => x != typeof(object) && x != client && x.IsAssignableFrom(client))
+			.Distinct()
+			.Select(x => $"RedirectHttp<{x.Name}>()")
+			.ToList();
+		var missing = $"RedirectHttp<{client.Name}>() redirects a typed client registered as AddHttpClient<{client.Name}>(), and none is registered.";
+		throw new InvalidOperationException(abstractions.Count == 0
+			? missing
+			: $"{missing} A client registered as AddHttpClient<Abstraction, Implementation>() is named after its abstraction: use {string.Join(" or ", abstractions)}.");
+	}
 
 	private static HttpRedirection Redirect(IServiceCollection services, string? name)
 	{

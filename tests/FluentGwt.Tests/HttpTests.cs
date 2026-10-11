@@ -68,6 +68,31 @@ public sealed partial class HttpTests
 			.ThenThrows<InvalidOperationException>(e => e.Message.Should().Contain($"GET {ForecastClient.Forecast}"));
 
 	[Fact]
+	public Task WhenAbstractionOfTypedClientIsRedirectedThenTheStubAnswers()
+		=> Context
+			.Given(x => x.Services.AddHttpClient<Weather, HttpWeather>())
+			.Given(x => x.Services.RedirectHttp<Weather>().RespondingWith(_ => new HttpResponseMessage(HttpStatusCode.Accepted)))
+			.WhenFetchingTheWeather()
+			.Then(status => status.Should().Be(HttpStatusCode.Accepted));
+
+	[Fact]
+	public Task WhenImplementationOfTypedClientIsRedirectedThenTestFailsNamingTheAbstraction()
+		=> Context
+			.Given(x => x.Services.AddHttpClient<Weather, HttpWeather>())
+			.Given(x => x.Services.RedirectHttp<HttpWeather>().RespondingWith(_ => new HttpResponseMessage(HttpStatusCode.Accepted)))
+			.WhenFetchingTheWeather()
+			.ThenThrows<InvalidOperationException>(e => e.Message.Should().Contain("RedirectHttp<HttpWeather>()").And.Contain("RedirectHttp<Weather>()"))
+			.And(x => x.Http.Requests.Should().BeEmpty());
+
+	[Fact]
+	public Task WhenRedirectedClientIsNeverRegisteredThenTestFailsNamingIt()
+		=> Context
+			.GivenNamedClients("first")
+			.Given(x => x.Services.RedirectHttp<ForecastClient>().RespondingWith(_ => new HttpResponseMessage(HttpStatusCode.Accepted)))
+			.WhenEachNamedClientGets("first")
+			.ThenThrows<InvalidOperationException>(e => e.Message.Should().Contain("RedirectHttp<ForecastClient>()"));
+
+	[Fact]
 	public Task WhenProductSetsItsOwnPrimaryHandlerAfterwardsThenRedirectionStillWins()
 		=> Context
 			.Given(x => x.Services.RedirectHttp<ForecastClient>().RespondingWith(_ => new HttpResponseMessage(HttpStatusCode.Accepted)))

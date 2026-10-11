@@ -313,6 +313,10 @@ New:
   later state given replaces earlier state before any reader that runs after it).
 - Transitions may take the cancellation token (C8).
 - Transitions on a `ServiceFixture` target receive the fixture.
+- A delegate whose signature is a transition's is a transition, whether it is a lambda, a method
+  group or a delegate value, and whether it is the first Given or a later one. A method group has a
+  natural delegate type, so it also fits `Given(value)`; on the target, that state overload is
+  ranked below every transition overload so it never wins.
 
 ### Example
 
@@ -336,6 +340,9 @@ null-key rejection, deferral, ordered execution). Additionally:
 - `WhenTransitionsAreDeclaredThenNoneRunBeforeExecution`
 - `WhenStateAndTransitionsInterleaveThenTheyApplyInDeclarationOrder`
 - `WhenTransitionTakesCancellationThenItReceivesTheTestToken`
+- `WhenTargetIsGivenASynchronousMethodGroupThenItRuns`
+- `WhenTargetIsGivenAValueTaskMethodGroupThenItRuns`
+- `WhenTargetIsGivenACancellableValueTaskMethodGroupThenItRuns`
 
 ### Coverage
 
@@ -1210,6 +1217,14 @@ Client-library suites set a handler hook on the client's options to return a mal
 - `x.Services.RedirectHttp()` replaces the **primary** handler of every factory-created client;
   `RedirectHttp(name)` and `RedirectHttp<Client>()` limit it to one named or typed client.
   Delegating handlers and resilience handlers stay in place.
+- `RedirectHttp<Client>()` takes the first type argument given to `AddHttpClient`, because the
+  factory names a typed client after it: for `AddHttpClient<Abstraction, Implementation>()` that is
+  the abstraction. When no service of type `Client` is registered, creating any client fails the
+  test with an `InvalidOperationException` naming the redirection and every registered abstraction
+  `Client` implements, instead of leaving the real primary handler in place. The check runs when a
+  client is created, not when the redirection is declared, so the redirection may still precede
+  the product's registration. A plain named client registers nothing the check could find, so
+  `RedirectHttp(name)` is not checked.
 - The redirection target is one of: `RespondingWith(request => response)` (sync or async), a stub
   `HttpMessageHandler`, or a test host (C21).
 - Every redirected request is recorded; `x.Http.Requests` exposes them for assertions.
@@ -1246,6 +1261,9 @@ public Task WhenForecastIsFetchedThenUpstreamIsCalledOnce()
 - `WhenResilienceIsConfiguredThenRedirectionSitsBeneathIt`
 - `WhenRequestIsRedirectedThenItIsRecorded`
 - `WhenNoResponseMatchesThenTestFailsNamingTheRequest`
+- `WhenAbstractionOfTypedClientIsRedirectedThenTheStubAnswers`
+- `WhenImplementationOfTypedClientIsRedirectedThenTestFailsNamingTheAbstraction`
+- `WhenRedirectedClientIsNeverRegisteredThenTestFailsNamingIt`
 
 ### Coverage
 
@@ -1839,10 +1857,25 @@ controlling it.
 - It is registered as `TimeProvider` in the fixture container with `TryAdd`, so products that
   inject `TimeProvider` (including resilience pipelines) use it and a test that registers its own
   wins.
+- An unkeyed registration of the `TimeProvider.System` instance is replaced with it when the
+  container is built: a product's own composition commonly does
+  `TryAddSingleton(TimeProvider.System)`, and composed in a Given it registers before the fixture
+  can. The instance is all the fixture can see, so a test that wants the wall clock registers it
+  through a factory, `AddSingleton<TimeProvider>(_ => TimeProvider.System)`.
 - In every host it **overrides** the application's `TimeProvider` registration rather than using
   `TryAdd`: real applications register `TimeProvider.System` themselves, and the test must still
   control time.
 - `x.Time.Advance(...)` moves time forward within any step.
+- A step blocked on `x.Time` fails rather than hanging. Each Given, host start, hosted-service
+  start and the act is a step. When a timer created on `x.Time` during the current step is still
+  pending, and no timer on `x.Time` has fired, for `FluentGwt:FrozenTimeLimit` seconds of real time
+  (default 5), the test fails with a `TimeoutException` naming the timer's due time and both ways
+  out: advance `x.Time`, or register the wall clock through a factory. Timers left pending by an
+  earlier step, such as a hosted service's loop, do not count, because the fixture cannot tell
+  whether the step is waiting on them. `0` turns the check off; it is skipped while a debugger is
+  attached. A step that does real work for longer than the limit while a timer of its own is
+  pending on `x.Time`, such as a slow real call under a timeout, fails the same way; raise the
+  limit for it.
 
 ### Example
 
@@ -1861,6 +1894,12 @@ public Task WhenReservationExpiresThenStockIsReleased()
 - `WhenFixtureIsCreatedThenTimeStartsAtSeededInstant`
 - `WhenProductInjectsTimeProviderThenItReceivesTheFakeProvider`
 - `WhenTestRegistersItsOwnTimeProviderThenItWins`
+- `WhenProductRegistersSystemTimeThenItReceivesTheFakeProvider`
+- `WhenTestRegistersSystemTimeThroughAFactoryThenItWins`
+- `WhenStepWaitsOnFixtureTimeThenTestFailsNamingTheWayOut`
+- `WhenStepAdvancesFixtureTimeThenTheWaitCompletes`
+- `WhenTimerFromAnEarlierStepIsPendingThenARealWaitIsNotFailed`
+- `WhenFrozenTimeLimitIsZeroThenAStepWaitingWithAPendingTimerIsNotFailed`
 - `WhenTimeIsAdvancedThenTimersFire`
 - `WhenHostIsStartedThenItSharesTheFixtureTime`
 - `WhenApplicationRegistersSystemTimeProviderThenHostStillUsesTheFixtureTime`
@@ -2296,8 +2335,23 @@ without a model there is no place for unreleased work to collect.
 | `main` | released code; every commit on it is a published version | — | — |
 | `dev` | integration; the repository's **default** branch; every push builds and publishes an alpha prerelease (D4) | `main` | `release/*` |
 | `feature/*` | one capability or change | `dev` | `dev`, by pull request |
-| `release/x.y.z` | stabilising a version | `dev` | `main`, then back into `dev` |
-| `hotfix/x.y.z` | an urgent fix to a release | `main` | `main`, then back into `dev` |
+| `release/x.y.z` | stabilising a version | `dev` | `main`; once `main` is tagged, `main` merges into `dev` |
+| `hotfix/x.y.z` | an urgent fix to a release | `main` | `main`; once `main` is tagged, `main` merges into `dev` |
+
+It is `main` that merges back, not the release or hotfix branch: the tag is on `main`'s merge
+commit, and `dev` must contain that commit for MinVer to see the tag (D4). A pull request from
+`main` itself cannot land, because `dev` requires its head to be up to date and updating `main`
+from `dev` is refused. So the merge is made on a branch cut from `dev`:
+
+```
+git switch -c sync/vx.y.z origin/dev
+git merge --no-ff origin/main
+git push -u origin sync/vx.y.z
+```
+
+then a pull request from `sync/vx.y.z` into `dev`, merged with a merge commit; a squash or rebase
+drops `main`'s merge commit and the tag with it. Keeping `dev` containing `main` also keeps the next
+release branch up to date with `main`, which `main` requires in the same way.
 
 The integration branch is named `dev`, not `develop` (ruling 23). Feature branches target `dev`,
 and because `dev` is the default branch, a pull request opened without choosing a base targets it
@@ -2347,13 +2401,18 @@ ignored; and unreleased work on `dev` should be installable without claiming a r
   local or CI build never claims a released number. `MinVerDefaultPreReleaseIdentifiers` is
   `alpha`, so MinVer appends the height — the commit count since the last tag — giving
   `x.y.z-alpha.N`. MinVer reads tags only, which suits gitflow: the version decision is the tag
-  made when a release branch lands on `main`.
+  made when a release branch lands on `main`. It reads only tags reachable from the commit being
+  built, so a `dev` that has not had `main` merged back since the last release builds
+  `0.0.0-alpha.0.N`, below every release.
 - **Prereleases from `dev` go to GitHub Packages** (ruling 23). An `alpha` job in `ci.yml` — not a
   separate workflow, which could not depend on CI's result — runs on every push to `dev` (a merged
   pull request), only after the build job has passed, and:
   1. relies on the build job's build and both test runs of that commit;
   2. packs in `Release`, so every package is `x.y.z-alpha.N`;
-  3. pushes every `.nupkg` to `https://nuget.pkg.github.com/smudge202/index.json` with the
+  3. fails, before pushing anything, unless the packed version's `x.y.z` is above the newest `v*`
+     tag, so a missed merge of `main` into `dev` stops the publish instead of publishing below the
+     last release;
+  4. pushes every `.nupkg` to `https://nuget.pkg.github.com/smudge202/index.json` with the
      workflow's own `GITHUB_TOKEN`, under `permissions: contents: read, packages: write`, without
      symbols (GitHub Packages does not take `.snupkg`). No secret is stored.
 
@@ -2381,7 +2440,7 @@ ignored; and unreleased work on `dev` should be installable without claiming a r
   deployment rule admits only `v*` tags, so no other ref or workflow can use it, or the OIDC identity
   the Trusted Publishing policy trusts.
 - Releasing is therefore: merge `release/x.y.z` into `main` → tag `vx.y.z` on `main` → approve the
-  `nuget` environment.
+  `nuget` environment → merge `main` into `dev` through a `sync/vx.y.z` branch (D3).
 - **Trusted Publishing setup (owner)**, performed once from these steps before the first release:
   1. Sign in to nuget.org as the account that will own the packages; from the account menu open
      **Trusted Publishing** and add a policy.

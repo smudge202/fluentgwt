@@ -23,15 +23,26 @@ public abstract record State<Target> : StateHolder
 		var fixture = target as ServiceFixture;
 		var (immediate, deferred) = Transitions.Take();
 		foreach (var transition in immediate)
+		{
+			fixture?.BeginStep();
 			await transition(target);
+		}
 		if (fixture is not null)
+		{
+			fixture.BeginStep();
 			await fixture.StartHosts();
+		}
 		foreach (var transition in deferred)
+		{
+			fixture?.BeginStep();
 			await transition(target);
+		}
 		if (fixture is not null)
 		{
 			fixture.ChooseSeedNow();
+			fixture.BeginStep();
 			await fixture.StartHostedServices();
+			fixture.BeginStep();
 		}
 		return target;
 	}

@@ -28,4 +28,7 @@ internal static class HttpTestsFluent
 
 	public static When<Fixture, HttpStatusCode> WhenFetchingTheForecast(this Given<Fixture> given)
 		=> given.When((x, cancellationToken) => x.Resolve<ForecastClient>().Get(cancellationToken));
+
+	public static When<Fixture, HttpStatusCode> WhenFetchingTheWeather(this Given<Fixture> given)
+		=> given.When((x, cancellationToken) => x.Resolve<Weather>().Today(cancellationToken));
 }

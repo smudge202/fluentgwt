@@ -69,6 +69,19 @@ jobs:
       - name: Pack
         run: dotnet pack FluentGwt.slnx -c Release -o artifacts
 
+      - name: Refuse a version that is not above the latest release
+        run: |
+          latest=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          latest=${latest#v}
+          package=$(basename artifacts/FluentGwt.[0-9]*.nupkg .nupkg)
+          version=${package#FluentGwt.}
+          release=${version%%-*}
+          echo "Packed $version; latest release ${latest:-none}"
+          if [ -n "$latest" ] && { [ "$release" = "$latest" ] || [ "$(printf '%s\n' "$latest" "$release" | sort -V | tail -n 1)" != "$release" ]; }; then
+            echo "::error::$version is not above the latest release $latest. Merge main into dev so MinVer can see the release tag."
+            exit 1
+          fi
+
       - name: Push to GitHub Packages
         run: >-
           dotnet nuget push "artifacts/*.nupkg"

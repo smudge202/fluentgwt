@@ -22,7 +22,8 @@ public abstract class ServiceFixture : IAsyncDisposable
 	private readonly List<IHostedService> _started = [];
 	private readonly List<FixtureHost> _hosts = [];
 	private readonly Lazy<int> _seed;
-	private readonly Lazy<FakeTimeProvider> _time;
+	private static readonly TimeSpan _WatchInterval = TimeSpan.FromMilliseconds(50);
+	private readonly Lazy<FixtureTime> _time;
 	private readonly Action<string>? _output = Runner.Output;
 	private readonly string? _identity = Runner.TestIdentity;
 	private ServiceProvider? _provider;
@@ -47,7 +48,7 @@ public abstract class ServiceFixture : IAsyncDisposable
 	{
 		_configuration = new(GetType().Assembly);
 		_seed = new(ChooseSeed);
-		_time = new(() => new FakeTimeProvider(new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero).AddSeconds(Seed)));
+		_time = new(() => new FixtureTime(new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero).AddSeconds(Seed)));
 	}
 
 	public int Seed => _seed.Value;
@@ -156,6 +157,38 @@ public abstract class ServiceFixture : IAsyncDisposable
 	}
 
 	internal void Write(string line) => Runner.Write(_output, line);
+
+	internal void BeginStep()
+	{
+		if (_time.IsValueCreated)
+			_time.Value.BeginStep();
+	}
+
+	internal async Task Watching(Task execution)
+	{
+		var step = -1L;
+		var fired = -1L;
+		var waiting = Stopwatch.StartNew();
+		while (!execution.IsCompleted)
+		{
+			await Task.WhenAny(execution, Task.Delay(_WatchInterval, CancellationToken.None));
+			if (execution.IsCompleted || !_time.IsValueCreated || Debugger.IsAttached || FrozenTimeLimit.From(Configuration) is not { } limit)
+			{
+				waiting.Restart();
+				continue;
+			}
+			var time = _time.Value;
+			if (time.PendingInStep() is not { } due || time.Step != step || time.Fired != fired)
+			{
+				(step, fired) = (time.Step, time.Fired);
+				waiting.Restart();
+				continue;
+			}
+			if (waiting.Elapsed >= limit)
+				throw new TimeoutException(FrozenTimeLimit.Describe(limit, due));
+		}
+		await execution;
+	}
 
 	internal async Task StartHosts()
 	{

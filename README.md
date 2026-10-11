@@ -130,6 +130,10 @@ Derive the fixture from `ServiceFixture` to compose and resolve through a real c
   replaces a registration of `TimeProvider.System`, so a product that registers the wall clock
   itself still runs on the fixture's. To keep the wall clock, register it through a factory:
   `AddSingleton<TimeProvider>(_ => TimeProvider.System)`.
+- Nothing moves `Time` but the test, so a step waiting on it (a delay, a retry back-off, a
+  `PeriodicTimer`) would wait forever. Instead the test fails once a timer set in the current step
+  has gone unfired for 5 seconds, naming both ways out. `FluentGwt:FrozenTimeLimit` changes the
+  limit in seconds, and 0 turns the check off. It is skipped while a debugger is attached.
 - `Logs` captures every log record for assertions; warnings and above also go to the test output
   (`FluentGwt:LogLevel` changes that).
 

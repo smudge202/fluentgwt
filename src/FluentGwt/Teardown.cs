@@ -6,9 +6,9 @@ internal static class Teardown
 {
 	public static async Task Around<Target>(State<Target> given, Func<Task> body)
 	{
-		var execution = body();
-		await execution.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
 		var fixture = given.Current as ServiceFixture;
+		var execution = fixture is null ? body() : fixture.Watching(body());
+		await execution.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
 		var failures = fixture is null ? [] : await fixture.TearDown();
 		if (fixture is not null && (failures.Count > 0 || !execution.IsCompletedSuccessfully))
 			fixture.ReportSeed();

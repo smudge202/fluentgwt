@@ -59,6 +59,64 @@ public sealed partial class ChainTests
 			.Then(x => x.Asserted.Should().BeSameAs(x.Probe));
 
 	[Fact]
+	public Task WhenAsyncFixtureAndResultAssertionIsUsedThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).Then(async (p, result) =>
+			{
+				await Task.Yield();
+				x.Asserted = (p, result);
+			}))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be((x.Probe, x.Probe.Result)));
+
+	[Fact]
+	public Task WhenFixtureAndResultAssertionReturnsValueTaskThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).Then((p, result) => x.AssertLater((p, result))))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be((x.Probe, x.Probe.Result)));
+
+	[Fact]
+	public Task WhenAsyncFixtureAndResultAssertionFailsThenItsExceptionFaultsTheChain()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).Then(async (p, _) =>
+			{
+				await Task.Yield();
+				p.Fail();
+			}))
+			.WhenExecutingTheChainCapturingFailure()
+			.Then(x => x.Failure.Should().BeSameAs(x.Probe.Failure));
+
+	[Fact]
+	public Task WhenAsyncThenFixtureIsUsedThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).ThenFixture(async p =>
+			{
+				await Task.Yield();
+				x.Asserted = p.Acts;
+			}))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be(1));
+
+	[Fact]
+	public Task WhenThenFixtureReturnsValueTaskThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).ThenFixture(p => x.AssertLater(p.Acts)))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be(1));
+
+	[Fact]
+	public Task WhenAsyncThenFixtureFailsThenItsExceptionFaultsTheChain()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).ThenFixture(async p =>
+			{
+				await Task.Yield();
+				p.Fail();
+			}))
+			.WhenExecutingTheChainCapturingFailure()
+			.Then(x => x.Failure.Should().BeSameAs(x.Probe.Failure));
+
+	[Fact]
 	public Task WhenThenIsAwaitedTwiceThenChainExecutesOnce()
 		=> Context
 			.GivenAwaitableChain(x => x.Probe.Given().When(p => p.Act()).Then(_ => { }))

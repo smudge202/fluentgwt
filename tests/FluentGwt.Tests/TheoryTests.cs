@@ -37,6 +37,55 @@ public sealed partial class TheoryTests
 			.When(x => x.Evaluated)
 			.Then((x, evaluated) => evaluated.Should().BeSameAs(x.Second));
 
+	[Fact]
+	public Task WhenFixtureRowIsAppliedAsynchronouslyThenItIsAwaited()
+		=> Context
+			.Given(FixtureRow<Part>.For<Fixture>("first", x => x.First), async (x, value) =>
+			{
+				await Task.Yield();
+				x.Evaluated = value;
+			})
+			.When(x => x.Evaluated)
+			.Then((x, evaluated) => evaluated.Should().BeSameAs(x.First));
+
+	[Fact]
+	public Task WhenFixtureRowIsAppliedAsynchronouslyAfterEarlierGivensThenItIsAwaited()
+		=> Context
+			.Given(x => x.Received = x.Second)
+			.Given(FixtureRow<Part>.For<Fixture>("received", x => (Part)x.Received!), async (x, value) =>
+			{
+				await Task.Yield();
+				x.Evaluated = value;
+			})
+			.When(x => x.Evaluated)
+			.Then((x, evaluated) => evaluated.Should().BeSameAs(x.Second));
+
+	[Fact]
+	public Task WhenFixtureRowApplicationReturnsValueTaskThenItIsAwaited()
+		=> Context
+			.Given(FixtureRow<Part>.For<Fixture>("first", x => x.First), (x, value) => x.EvaluateLater(value))
+			.When(x => x.Evaluated)
+			.Then((x, evaluated) => evaluated.Should().BeSameAs(x.First));
+
+	[Fact]
+	public Task WhenFixtureRowApplicationAfterEarlierGivensReturnsValueTaskThenItIsAwaited()
+		=> Context
+			.Given(x => x.Received = x.Second)
+			.Given(FixtureRow<Part>.For<Fixture>("received", x => (Part)x.Received!), (x, value) => x.EvaluateLater(value))
+			.When(x => x.Evaluated)
+			.Then((x, evaluated) => evaluated.Should().BeSameAs(x.Second));
+
+	[Fact]
+	public Task WhenAsyncFixtureRowApplicationFailsThenArrangementFails()
+		=> Context
+			.Given(FixtureRow<Part>.For<Fixture>("first", x => x.First), async (_, _) =>
+			{
+				await Task.Yield();
+				throw new InvalidOperationException("application failed");
+			})
+			.When(_ => { })
+			.ThenArrangementFails<InvalidOperationException>(e => e.Message.Should().Be("application failed"));
+
 	[Theory]
 	[MemberData(nameof(Parts))]
 	public Task WhenFixtureDataHasLabelsThenRowsDisplayByLabel(FixtureRow<Part> part)

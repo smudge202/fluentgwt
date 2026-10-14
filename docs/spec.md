@@ -475,7 +475,10 @@ whole chain as one expression.
   because an overload taking the fixture would be ambiguous with one taking the result whenever the
   lambda body compiles against both).
 - After an act without a result, `Then(x => ...)` receives the fixture.
-- All forms have async variants.
+- All forms have `Task` and `ValueTask` variants, `Then((x, result) => ...)` and `ThenFixture`
+  included. The `Task` form carries `[OverloadResolutionPriority(1)]`, so an `async` lambda always
+  binds an awaited overload, never an `Action` as `async void`, whose failure would escape the chain
+  and crash the test process uncounted.
 - Then returns the library's own chain type (`Then<Target>`, `Then<Target, Result>`), not a
   `Task`, so `.And(...)` can follow it (C7). The chain type is **awaitable and implicitly
   convertible to `Task`**, so a fact can be an expression-bodied member returning `Task` whether it
@@ -514,6 +517,12 @@ public Task WhenOrderIsPlacedThenWarehouseIsReserved()
 - `WhenThenIsAwaitedThenChainExecutes`
 - `WhenAndFollowsThenInExpressionBodiedFactThenChainExecutes`
 - `WhenAsyncAssertionIsUsedThenItIsAwaited`
+- `WhenAsyncFixtureAndResultAssertionIsUsedThenItIsAwaited`
+- `WhenFixtureAndResultAssertionReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncFixtureAndResultAssertionFailsThenItsExceptionFaultsTheChain`
+- `WhenAsyncThenFixtureIsUsedThenItIsAwaited`
+- `WhenThenFixtureReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncThenFixtureFailsThenItsExceptionFaultsTheChain`
 - `WhenThenIsAwaitedTwiceThenChainExecutesOnce`
 
 ### Coverage
@@ -536,7 +545,9 @@ with well over a hundred exception-expecting facts, and others asserting on exce
 
 - `ThenThrows<Failure>()` passes when the act throws `Failure` or a type derived from it;
   `ThenThrowsExactly<Failure>()` requires the exact type.
-- Both accept an optional assertion on the exception, and on fixture and exception.
+- Both accept an optional assertion on the exception, and on fixture and exception, each in sync,
+  `Task` and `ValueTask` forms (C5). `ThenArrangementFails<Failure>` takes the same forms of an
+  assertion on the exception.
 - If the act does not throw, the test fails with a message naming the expected type.
 - If the act throws an unrelated type, the test fails, and the failure's message carries the actual
   exception in full — its type, message and stack. (AwesomeAssertions raises its own failure type
@@ -572,6 +583,15 @@ public Task WhenFrameIsTruncatedThenDecodingThrows()
 - `WhenGivenThrowsExpectedTypeThenExpectationDoesNotPass`
 - `WhenAssertionOnTheExceptionFailsThenItsMessagePropagates`
 - `WhenArrangementFailsAsExpectedThenThenArrangementFailsPasses`
+- `WhenAsyncAssertionOnTheExceptionIsUsedThenItIsAwaited`
+- `WhenAssertionOnTheExceptionReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncAssertionOnFixtureAndExceptionIsUsedThenItIsAwaited`
+- `WhenAssertionOnFixtureAndExceptionReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncAssertionOnTheExceptionFailsThenItsExceptionFaultsTheChain`
+- `WhenActWithResultThrowsThenAsyncAssertionOnTheExceptionIsAwaited`
+- `WhenActWithResultThrowsThenAsyncAssertionOnFixtureAndExceptionIsAwaited`
+- `WhenAsyncAssertionFollowsThenThrowsExactlyThenItIsAwaited`
+- `WhenAsyncAssertionFollowsThenArrangementFailsThenItIsAwaited`
 
 ### Coverage
 
@@ -629,6 +649,9 @@ public Task WhenOrderIsPlacedThenResponseAndStoreAgree()
 - `WhenAndResultFollowsWhenThenResultIsReplaced`
 - `WhenAndFollowsThenThenItRunsAsAnAssertion`
 - `WhenAndFixtureFollowsThenThenItReceivesTheFixture`
+- `WhenAsyncFixtureAndResultAndFollowsThenThenItIsAwaited`
+- `WhenFixtureAndResultAndReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncFixtureAndResultAndFailsThenItsExceptionFaultsTheChain`
 - `WhenAndFollowsThrowsThenItReceivesTheFixture`
 - `WhenFirstAssertionFailsThenLaterAssertionsDoNotRun`
 
@@ -1020,7 +1043,7 @@ unseeded randomness, so a failure on one run could not be reproduced on the next
   - The row is evaluated against the per-test fixture during phase 1, after the givens before it.
     `Given(row)` stores the value as chain state; `Given(row, (x, value) => ...)` hands it to the
     fixture, which is the form a one-line theory needs, since steps cannot yet read chain state
-    (C2's chain context is not built).
+    (C2's chain context is not built). It has sync, `Task` and `ValueTask` forms (C8).
 - `TheoryRandom.Create(seed)` gives row generators a `System.Random` from an explicit seed — never
   an unseeded generator — so generated rows are identical on every enumeration. `FluentGwtSeed`
   (C14), when set, overrides that seed too; `TheoryRandom.Create(seed, configuration)` takes the
@@ -1057,6 +1080,11 @@ public Task WhenOrderIsInvalidThenItIsRejected(FixtureRow<PlaceOrder> order)
 - `WhenTheoryParameterIsUsedInStepThenEachRowSeesItsValue`
 - `WhenFixtureRowIsGivenThenItIsEvaluatedAgainstThisTestsFixture`
 - `WhenFixtureRowIsGivenThenEvaluatedValueIsAvailableAsState`
+- `WhenFixtureRowIsAppliedAsynchronouslyThenItIsAwaited`
+- `WhenFixtureRowIsAppliedAsynchronouslyAfterEarlierGivensThenItIsAwaited`
+- `WhenFixtureRowApplicationReturnsValueTaskThenItIsAwaited`
+- `WhenFixtureRowApplicationAfterEarlierGivensReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncFixtureRowApplicationFailsThenArrangementFails`
 - `WhenFixtureDataHasLabelsThenRowsDisplayByLabel`
 - `WhenTheoryDataIsEnumeratedTwiceThenRowsAreIdentical`
 - `WhenTheoryRowsDifferThenEachRowHasItsOwnTestId`
@@ -1494,7 +1522,8 @@ the other's writes.
   on first use. Used in an immediate given, that start happens before later arrangement, which the
   host then refuses — so seeding belongs in a deferred given, as in the example.
 - `Scope` passes its work the fixture's `Cancellation` (C10), the token linked to the test's.
-  It has sync, `Task` and result-returning forms.
+  It has sync, `Task` and result-returning forms; the `Task` form comes with and without the token,
+  so `Scope(async services => ...)` is awaited rather than bound to the sync form as `async void`.
 
 ### Example
 
@@ -1519,6 +1548,8 @@ public static Then<Fixture, HttpResponseMessage> ThenForecastIsStored(this When<
 - `WhenScopeIsUsedBeforeStartThenTheHostStartsOnFirstUse`
 - `WhenScopeIsGivenWorkThenItReceivesTheFixtureCancellation`
 - `WhenScopeCompletesThenScopedServicesAreDisposed`
+- `WhenScopeIsGivenAsyncWorkThenItIsAwaitedInsideTheScope`
+- `WhenAsyncScopeWorkFailsThenTheScopeFaultsWithItsException`
 - `WhenDeferredGivenSeedsThroughHostThenActSeesTheData`
 - `WhenAssertionReadsThroughHostThenItSeesActWrites`
 
@@ -2078,7 +2109,7 @@ All in the root namespace `FluentGwt` (extension classes included, so a test fil
 | `target.Given()`, `Given.With(...)` | Existing entry points; both kept. |
 | `.Given(value)`, `.Given(name, value)`, `.Given(key, value)` | State givens (existing). |
 | `.Given(«step»)`, `.Given((x, state) => ...)` | Transition givens (existing, widened). |
-| `.Given(FixtureRow<Target, Value>)` | Evaluate a fixture-relative theory row into state. |
+| `.Given(FixtureRow<Value>)`, `.Given(row, «step»)` | Evaluate a fixture-relative theory row into state, or hand it to the fixture as `(x, value)`. |
 | `.Get<Value>()`, `.Get<Value>(name)`, `.Get<Value>(key)` | Read state (existing). |
 | `.Deferred()` | Defer the preceding given to phase 3. |
 | `.And(«step»)` on `Given<Target>` | Another transition. |

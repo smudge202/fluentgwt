@@ -52,6 +52,35 @@ public sealed partial class ChainTests
 			.Then(x => x.Asserted.Should().BeSameAs(x.Probe.Result));
 
 	[Fact]
+	public Task WhenAsyncFixtureAndResultAndFollowsThenThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).Then(_ => { }).And(async (p, result) =>
+			{
+				await Task.Yield();
+				x.Asserted = (p, result);
+			}))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be((x.Probe, x.Probe.Result)));
+
+	[Fact]
+	public Task WhenFixtureAndResultAndReturnsValueTaskThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).Then(_ => { }).And((p, result) => x.AssertLater((p, result))))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be((x.Probe, x.Probe.Result)));
+
+	[Fact]
+	public Task WhenAsyncFixtureAndResultAndFailsThenItsExceptionFaultsTheChain()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).Then(_ => { }).And(async (p, _) =>
+			{
+				await Task.Yield();
+				p.Fail();
+			}))
+			.WhenExecutingTheChainCapturingFailure()
+			.Then(x => x.Failure.Should().BeSameAs(x.Probe.Failure));
+
+	[Fact]
 	public Task WhenAndFixtureFollowsThenThenItReceivesTheFixture()
 		=> Context
 			.GivenChain(x => x.Probe.Given().When(p => p.Answer()).Then(_ => { }).AndFixture(p => x.Asserted = p))

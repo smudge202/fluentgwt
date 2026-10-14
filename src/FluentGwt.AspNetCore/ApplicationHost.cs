@@ -135,6 +135,13 @@ public sealed partial class ApplicationHost : FixtureHost
 		work(scope.ServiceProvider);
 	}
 
+	public async Task Scope(Func<IServiceProvider, Task> work)
+	{
+		ArgumentNullException.ThrowIfNull(work);
+		await using var scope = Services.CreateAsyncScope();
+		await work(scope.ServiceProvider);
+	}
+
 	public async Task Scope(Func<IServiceProvider, CancellationToken, Task> work)
 	{
 		ArgumentNullException.ThrowIfNull(work);

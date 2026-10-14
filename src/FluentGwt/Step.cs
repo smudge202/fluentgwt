@@ -46,6 +46,18 @@ internal static class Step
 		};
 	}
 
+	public static Func<Target, Result, ValueTask> From<Target, Result>(Func<Target, Result, Task> step)
+	{
+		ArgumentNullException.ThrowIfNull(step);
+		return (x, result) => new ValueTask(step(x, result));
+	}
+
+	public static Func<Target, Result, ValueTask> From<Target, Result>(Func<Target, Result, ValueTask> step)
+	{
+		ArgumentNullException.ThrowIfNull(step);
+		return step;
+	}
+
 	public static Func<Target, Result, ValueTask> OnResult<Target, Result>(Func<Result, ValueTask> step) => (_, result) => step(result);
 
 	public static Func<Target, Result, ValueTask> OnTarget<Target, Result>(Func<Target, ValueTask> step) => (x, _) => step(x);

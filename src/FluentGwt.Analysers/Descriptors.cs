@@ -29,4 +29,12 @@ internal static class Descriptors
 		Category,
 		DiagnosticSeverity.Warning,
 		isEnabledByDefault: true);
+
+	public static DiagnosticDescriptor AsyncVoid { get; } = new(
+		"FG0004",
+		"An async delegate passed as a void-returning delegate runs as async void",
+		"This async {0} is passed to '{1}' as '{2}', so it runs as async void: nothing awaits it, and its failure escapes the chain and can end the test run uncounted",
+		Category,
+		DiagnosticSeverity.Warning,
+		isEnabledByDefault: true);
 }

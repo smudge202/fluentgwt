@@ -169,6 +169,101 @@ public sealed partial class AnalyserTests
 			.Then(source => source.Should().Contain("fixture.Given(x => x.Resolve<object>()).Deferred().Given(x => x.Services.Clear())"));
 
 	[Fact]
+	public Task WhenAsyncLambdaIsPassedAsActionToALibraryMethodThenFG0004IsReported()
+		=> Context
+			.GivenSource("""
+				public static class OrderSteps
+				{
+					public static Given<OrderFixture> GivenRegistered(this OrderFixture fixture)
+						=> fixture.Given(x => x.Api.ConfigureServices(async services => await Task.Yield()));
+				}
+				""")
+			.WhenAnalysing()
+			.Then(ids => ids.Should().Equal("FG0004"));
+
+	[Fact]
+	public Task WhenAsyncAnonymousMethodIsPassedAsActionToALibraryMethodThenFG0004IsReported()
+		=> Context
+			.GivenSource("""
+				public static class OrderSteps
+				{
+					public static Given<OrderFixture> GivenRegistered(this OrderFixture fixture)
+						=> fixture.Given(x => x.Api.ConfigureServices(async delegate { await Task.Yield(); }));
+				}
+				""")
+			.WhenAnalysing()
+			.Then(ids => ids.Should().Equal("FG0004"));
+
+	[Fact]
+	public Task WhenAsyncVoidMethodGroupIsPassedAsActionToALibraryMethodThenFG0004IsReported()
+		=> Context
+			.GivenSource("""
+				public static class OrderSteps
+				{
+					public static Given<OrderFixture> GivenRegistered(this OrderFixture fixture)
+						=> fixture.Given(x => x.Api.ConfigureServices(Register));
+
+					private static async void Register(Microsoft.Extensions.DependencyInjection.IServiceCollection services) => await Task.Yield();
+				}
+				""")
+			.WhenAnalysing()
+			.Then(ids => ids.Should().Equal("FG0004"));
+
+	[Fact]
+	public Task WhenAsyncLambdaBindsAnAwaitedOverloadThenNothingIsReported()
+		=> Context
+			.GivenSource("""
+				public sealed class OrderTests
+				{
+					private OrderFixture Context { get; } = new();
+
+					public Task WhenPlacedThenAccepted()
+						=> Context
+							.Given(async x => await Task.Yield())
+							.When(async x => { await Task.Yield(); return 1; })
+							.Then(async (x, result) => await Task.Yield())
+							.And(async (x, result) => await Task.Yield())
+							.AndFixture(async x => await Task.Yield());
+
+					public Task WhenRejectedThenFixtureSeesIt()
+						=> Context.Given().When(x => 1).ThenFixture(async x => await Task.Yield());
+
+					public Task WhenFailedThenExceptionIsInspected()
+						=> Context.Given().When(x => 1).ThenThrows<InvalidOperationException>(async (x, e) => await Task.Yield());
+
+					public Task WhenSeededThenScopeIsAwaited()
+						=> Context.Given().When(x => x.Api.Scope(async services => await Task.Yield())).Then(x => { });
+				}
+				""")
+			.WhenAnalysing()
+			.Then(ids => ids.Should().BeEmpty());
+
+	[Fact]
+	public Task WhenSyncLambdaIsPassedAsActionToALibraryMethodThenNothingIsReported()
+		=> Context
+			.GivenSource("""
+				public static class OrderSteps
+				{
+					public static Given<OrderFixture> GivenRegistered(this OrderFixture fixture)
+						=> fixture.Given(x => x.Api.ConfigureServices(services => { }));
+				}
+				""")
+			.WhenAnalysing()
+			.Then(ids => ids.Should().BeEmpty());
+
+	[Fact]
+	public Task WhenAsyncLambdaIsPassedAsActionOutsideTheLibraryThenNothingIsReported()
+		=> Context
+			.GivenSource("""
+				public static class OrderSteps
+				{
+					public static void Visit(System.Collections.Generic.List<int> orders) => orders.ForEach(async order => await Task.Yield());
+				}
+				""")
+			.WhenAnalysing()
+			.Then(ids => ids.Should().BeEmpty());
+
+	[Fact]
 	public Task WhenStepMethodIsCalledFromChainThenItIsNotAnalysedThrough()
 		=> Context
 			.GivenSource("""

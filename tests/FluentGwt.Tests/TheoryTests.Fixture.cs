@@ -15,6 +15,12 @@ public sealed partial class TheoryTests
 			.Build();
 		public object? Received { get; set; }
 		public Part? Evaluated { get; set; }
+
+		public async ValueTask EvaluateLater(Part value)
+		{
+			await Task.Yield();
+			Evaluated = value;
+		}
 	}
 
 	public sealed class Part;

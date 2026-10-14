@@ -134,8 +134,16 @@ public static class GivenExtensions
 	public static Given<Target> Given<Target, Value>(this Target target, FixtureRow<Value> row) =>
 		target.Given().Given(row);
 
-	[OverloadResolutionPriority(-1)]
+	[OverloadResolutionPriority(-2)]
 	public static Given<Target> Given<Target, Value>(this Target target, FixtureRow<Value> row, Action<Target, Value> apply) =>
+		target.Given().Given(row, apply);
+
+	[OverloadResolutionPriority(-1)]
+	public static Given<Target> Given<Target, Value>(this Target target, FixtureRow<Value> row, Func<Target, Value, Task> apply) =>
+		target.Given().Given(row, apply);
+
+	[OverloadResolutionPriority(-2)]
+	public static Given<Target> Given<Target, Value>(this Target target, FixtureRow<Value> row, Func<Target, Value, ValueTask> apply) =>
 		target.Given().Given(row, apply);
 
 	public static Given<Target> Given<Target, Value>(this Given<Target> given, FixtureRow<Value> row)
@@ -150,6 +158,21 @@ public static class GivenExtensions
 	}
 
 	public static Given<Target> Given<Target, Value>(this Given<Target> given, FixtureRow<Value> row, Action<Target, Value> apply)
+	{
+		ArgumentNullException.ThrowIfNull(row);
+		ArgumentNullException.ThrowIfNull(apply);
+		return given.Given(x => apply(x, row.Evaluate(x)));
+	}
+
+	[OverloadResolutionPriority(1)]
+	public static Given<Target> Given<Target, Value>(this Given<Target> given, FixtureRow<Value> row, Func<Target, Value, Task> apply)
+	{
+		ArgumentNullException.ThrowIfNull(row);
+		ArgumentNullException.ThrowIfNull(apply);
+		return given.Given(x => apply(x, row.Evaluate(x)));
+	}
+
+	public static Given<Target> Given<Target, Value>(this Given<Target> given, FixtureRow<Value> row, Func<Target, Value, ValueTask> apply)
 	{
 		ArgumentNullException.ThrowIfNull(row);
 		ArgumentNullException.ThrowIfNull(apply);

@@ -25,5 +25,11 @@ public sealed partial class ChainTests
 			Asserted = token;
 			return ValueTask.CompletedTask;
 		}
+
+		public async ValueTask AssertLater(object? value)
+		{
+			await Task.Yield();
+			Asserted = value;
+		}
 	}
 }

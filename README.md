@@ -153,7 +153,7 @@ are reached as `this.Fake`.
 
 | Package | NuGet | Adds |
 |---|---|---|
-| `FluentGwt` | [![FluentGwt](https://img.shields.io/nuget/v/FluentGwt?label=)](https://www.nuget.org/packages/FluentGwt) | the chain, `ServiceFixture`, overrides, configuration, seeds, time, logging, and the FG0001–FG0003 analysers |
+| `FluentGwt` | [![FluentGwt](https://img.shields.io/nuget/v/FluentGwt?label=)](https://www.nuget.org/packages/FluentGwt) | the chain, `ServiceFixture`, overrides, configuration, seeds, time, logging, and the FG0001–FG0004 analysers |
 | `FluentGwt.Xunit` | [![FluentGwt.Xunit](https://img.shields.io/nuget/v/FluentGwt.Xunit?label=)](https://www.nuget.org/packages/FluentGwt.Xunit) | the test's cancellation token and identity, integration gating, `FixtureData`, test output |
 | `FluentGwt.AspNetCore` | [![FluentGwt.AspNetCore](https://img.shields.io/nuget/v/FluentGwt.AspNetCore?label=)](https://www.nuget.org/packages/FluentGwt.AspNetCore) | `ApplicationHost`: the app under test, in memory or on real sockets, with stubbed authentication |
 | `FluentGwt.Http` | [![FluentGwt.Http](https://img.shields.io/nuget/v/FluentGwt.Http?label=)](https://www.nuget.org/packages/FluentGwt.Http) | `RedirectHttp`, sending `HttpClient` traffic to a host or handler of the test's choosing |

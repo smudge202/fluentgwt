@@ -475,7 +475,10 @@ whole chain as one expression.
   because an overload taking the fixture would be ambiguous with one taking the result whenever the
   lambda body compiles against both).
 - After an act without a result, `Then(x => ...)` receives the fixture.
-- All forms have async variants.
+- All forms have `Task` and `ValueTask` variants, `Then((x, result) => ...)` and `ThenFixture`
+  included. The `Task` form carries `[OverloadResolutionPriority(1)]`, so an `async` lambda always
+  binds an awaited overload, never an `Action` as `async void`, whose failure would escape the chain
+  and crash the test process uncounted.
 - Then returns the library's own chain type (`Then<Target>`, `Then<Target, Result>`), not a
   `Task`, so `.And(...)` can follow it (C7). The chain type is **awaitable and implicitly
   convertible to `Task`**, so a fact can be an expression-bodied member returning `Task` whether it
@@ -514,6 +517,12 @@ public Task WhenOrderIsPlacedThenWarehouseIsReserved()
 - `WhenThenIsAwaitedThenChainExecutes`
 - `WhenAndFollowsThenInExpressionBodiedFactThenChainExecutes`
 - `WhenAsyncAssertionIsUsedThenItIsAwaited`
+- `WhenAsyncFixtureAndResultAssertionIsUsedThenItIsAwaited`
+- `WhenFixtureAndResultAssertionReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncFixtureAndResultAssertionFailsThenItsExceptionFaultsTheChain`
+- `WhenAsyncThenFixtureIsUsedThenItIsAwaited`
+- `WhenThenFixtureReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncThenFixtureFailsThenItsExceptionFaultsTheChain`
 - `WhenThenIsAwaitedTwiceThenChainExecutesOnce`
 
 ### Coverage
@@ -536,7 +545,9 @@ with well over a hundred exception-expecting facts, and others asserting on exce
 
 - `ThenThrows<Failure>()` passes when the act throws `Failure` or a type derived from it;
   `ThenThrowsExactly<Failure>()` requires the exact type.
-- Both accept an optional assertion on the exception, and on fixture and exception.
+- Both accept an optional assertion on the exception, and on fixture and exception, each in sync,
+  `Task` and `ValueTask` forms (C5). `ThenArrangementFails<Failure>` takes the same forms of an
+  assertion on the exception.
 - If the act does not throw, the test fails with a message naming the expected type.
 - If the act throws an unrelated type, the test fails, and the failure's message carries the actual
   exception in full — its type, message and stack. (AwesomeAssertions raises its own failure type
@@ -572,6 +583,15 @@ public Task WhenFrameIsTruncatedThenDecodingThrows()
 - `WhenGivenThrowsExpectedTypeThenExpectationDoesNotPass`
 - `WhenAssertionOnTheExceptionFailsThenItsMessagePropagates`
 - `WhenArrangementFailsAsExpectedThenThenArrangementFailsPasses`
+- `WhenAsyncAssertionOnTheExceptionIsUsedThenItIsAwaited`
+- `WhenAssertionOnTheExceptionReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncAssertionOnFixtureAndExceptionIsUsedThenItIsAwaited`
+- `WhenAssertionOnFixtureAndExceptionReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncAssertionOnTheExceptionFailsThenItsExceptionFaultsTheChain`
+- `WhenActWithResultThrowsThenAsyncAssertionOnTheExceptionIsAwaited`
+- `WhenActWithResultThrowsThenAsyncAssertionOnFixtureAndExceptionIsAwaited`
+- `WhenAsyncAssertionFollowsThenThrowsExactlyThenItIsAwaited`
+- `WhenAsyncAssertionFollowsThenArrangementFailsThenItIsAwaited`
 
 ### Coverage
 
@@ -629,6 +649,9 @@ public Task WhenOrderIsPlacedThenResponseAndStoreAgree()
 - `WhenAndResultFollowsWhenThenResultIsReplaced`
 - `WhenAndFollowsThenThenItRunsAsAnAssertion`
 - `WhenAndFixtureFollowsThenThenItReceivesTheFixture`
+- `WhenAsyncFixtureAndResultAndFollowsThenThenItIsAwaited`
+- `WhenFixtureAndResultAndReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncFixtureAndResultAndFailsThenItsExceptionFaultsTheChain`
 - `WhenAndFollowsThrowsThenItReceivesTheFixture`
 - `WhenFirstAssertionFailsThenLaterAssertionsDoNotRun`
 
@@ -1020,7 +1043,7 @@ unseeded randomness, so a failure on one run could not be reproduced on the next
   - The row is evaluated against the per-test fixture during phase 1, after the givens before it.
     `Given(row)` stores the value as chain state; `Given(row, (x, value) => ...)` hands it to the
     fixture, which is the form a one-line theory needs, since steps cannot yet read chain state
-    (C2's chain context is not built).
+    (C2's chain context is not built). It has sync, `Task` and `ValueTask` forms (C8).
 - `TheoryRandom.Create(seed)` gives row generators a `System.Random` from an explicit seed — never
   an unseeded generator — so generated rows are identical on every enumeration. `FluentGwtSeed`
   (C14), when set, overrides that seed too; `TheoryRandom.Create(seed, configuration)` takes the
@@ -1057,6 +1080,11 @@ public Task WhenOrderIsInvalidThenItIsRejected(FixtureRow<PlaceOrder> order)
 - `WhenTheoryParameterIsUsedInStepThenEachRowSeesItsValue`
 - `WhenFixtureRowIsGivenThenItIsEvaluatedAgainstThisTestsFixture`
 - `WhenFixtureRowIsGivenThenEvaluatedValueIsAvailableAsState`
+- `WhenFixtureRowIsAppliedAsynchronouslyThenItIsAwaited`
+- `WhenFixtureRowIsAppliedAsynchronouslyAfterEarlierGivensThenItIsAwaited`
+- `WhenFixtureRowApplicationReturnsValueTaskThenItIsAwaited`
+- `WhenFixtureRowApplicationAfterEarlierGivensReturnsValueTaskThenItIsAwaited`
+- `WhenAsyncFixtureRowApplicationFailsThenArrangementFails`
 - `WhenFixtureDataHasLabelsThenRowsDisplayByLabel`
 - `WhenTheoryDataIsEnumeratedTwiceThenRowsAreIdentical`
 - `WhenTheoryRowsDifferThenEachRowHasItsOwnTestId`
@@ -1494,7 +1522,8 @@ the other's writes.
   on first use. Used in an immediate given, that start happens before later arrangement, which the
   host then refuses — so seeding belongs in a deferred given, as in the example.
 - `Scope` passes its work the fixture's `Cancellation` (C10), the token linked to the test's.
-  It has sync, `Task` and result-returning forms.
+  It has sync, `Task` and result-returning forms; the `Task` form comes with and without the token,
+  so `Scope(async services => ...)` is awaited rather than bound to the sync form as `async void`.
 
 ### Example
 
@@ -1519,6 +1548,8 @@ public static Then<Fixture, HttpResponseMessage> ThenForecastIsStored(this When<
 - `WhenScopeIsUsedBeforeStartThenTheHostStartsOnFirstUse`
 - `WhenScopeIsGivenWorkThenItReceivesTheFixtureCancellation`
 - `WhenScopeCompletesThenScopedServicesAreDisposed`
+- `WhenScopeIsGivenAsyncWorkThenItIsAwaitedInsideTheScope`
+- `WhenAsyncScopeWorkFailsThenTheScopeFaultsWithItsException`
 - `WhenDeferredGivenSeedsThroughHostThenActSeesTheData`
 - `WhenAssertionReadsThroughHostThenItSeesActWrites`
 
@@ -1955,8 +1986,9 @@ public Task WhenReservationExpiresThenStockIsReleased()
 
 ### Problem
 
-Three of the faults the survey found are visible in source before a test ever runs, and each one
-fails far from its cause at run time — or not at all:
+Three of the faults the survey found, and one that any `Action`-typed parameter leaves open, are
+visible in source before a test ever runs, and each one fails far from its cause at run time — or
+not at all:
 
 1. A fixture exposed through a property that constructs a new instance on every access, so state
    written by one step is invisible to the next and disposal never runs (§30, fault 13).
@@ -1964,6 +1996,9 @@ fails far from its cause at run time — or not at all:
    nothing runs, and the test passes having tested nothing.
 3. A given that resolves from the container, written before a given that still registers, and not
    deferred — the lock failure of C1, reported at the later given rather than the one at fault (C3).
+4. An `async` lambda passed where the parameter is a void-returning delegate, which compiles
+   silently as `async void`. Nothing awaits it, and a failure inside it escapes the chain and can
+   end the test process, so the runner never counts the test.
 
 ### Behaviour (Analysers package)
 
@@ -1972,11 +2007,19 @@ fails far from its cause at run time — or not at all:
 | `FG0001` | Warning | A property on a test class whose type derives from `ServiceFixture` and that is not a getter-only auto-property initialised with `new()` — an expression-bodied `=> new()` included. | Rewrite as `{ get; } = new();` |
 | `FG0002` | Warning | An expression whose type is one of the library's chain types (`Given<…>`, `When<…>`, `Then<…>`, `ThenThrows<…>`) whose value is discarded: an expression statement, or a chain assigned to a local that is never returned or awaited. | None |
 | `FG0003` | Warning | Within one chain expression, an immediate given whose lambda resolves from the fixture container (`Resolve`, `IsResolvable`), followed by a given whose lambda touches `Services`; or an immediate given whose lambda uses a running host (`ApplicationHost.Scope`, `ApplicationHost.Resolve`). | Append `.Deferred()` |
+| `FG0004` | Warning | An `async` lambda, `async` anonymous method or `async void` method group passed directly as an argument to a method in the `FluentGwt` namespace, where the parameter's delegate type returns `void`. | None |
 
 - **FG0002 is narrowed to executable chains:** a discarded `When`, `Then` or `ThenThrows` — as a
   statement, the expression body of a void member or lambda, or a local of those types that is never
   referenced. A discarded `Given` is not reported: `given.Given(...)` as a statement legitimately
   extends the same chain, so flagging it would be wrong as often as right.
+- **FG0004 backs the overloads, it does not replace them.** Every step and assertion has `Task` and
+  `ValueTask` forms (C5, C8), so an `async` lambda binds an awaited overload; what remains are the
+  synchronous configuration callbacks (`ApplicationHost.ConfigureServices`, `Pipeline`, `Composed`,
+  `CreateClient(user => ...)`, `GivenPolicy`) and any member added later without its async forms.
+  It has no code fix: either the callback is synchronous and `async` comes off, or the library is
+  missing an overload. An `async` delegate given to the consumer's own helper is not reported, even
+  where the helper forwards it to the library.
 - The analysers live in `FluentGwt.Analysers`, which references only the compiler; the code fixes live
   in `FluentGwt.Analysers.CodeFixes`, which references Workspaces (Roslyn's rule RS1038 forbids
   both in one assembly). Both target netstandard2.0 and Roslyn 5.0, the version .NET 10 shipped with.
@@ -2006,6 +2049,10 @@ public static Given<Fixture> GivenEmptyStore(this Fixture fixture)
 	=> fixture
 		.Given(x => x.Resolve<OrderStore>().Clear())
 		.Given(x => x.Services.Override(x.Warehouse.Object));
+
+// FG0004: runs as async void, so nothing awaits the seeding
+public static Given<Fixture> GivenSeededHost(this Fixture fixture)
+	=> fixture.Given(x => x.Api.ConfigureServices(async services => await Seed(services)));
 ```
 
 ### Acceptance criteria
@@ -2022,6 +2069,12 @@ public static Given<Fixture> GivenEmptyStore(this Fixture fixture)
 - `WhenImmediateGivenUsesRunningHostThenFG0003IsReported`
 - `WhenFG0003CodeFixIsAppliedThenDeferredIsAppended`
 - `WhenStepMethodIsCalledFromChainThenItIsNotAnalysedThrough`
+- `WhenAsyncLambdaIsPassedAsActionToALibraryMethodThenFG0004IsReported`
+- `WhenAsyncAnonymousMethodIsPassedAsActionToALibraryMethodThenFG0004IsReported`
+- `WhenAsyncVoidMethodGroupIsPassedAsActionToALibraryMethodThenFG0004IsReported`
+- `WhenAsyncLambdaBindsAnAwaitedOverloadThenNothingIsReported`
+- `WhenSyncLambdaIsPassedAsActionToALibraryMethodThenNothingIsReported`
+- `WhenAsyncLambdaIsPassedAsActionOutsideTheLibraryThenNothingIsReported`
 
 ### Coverage
 
@@ -2078,7 +2131,7 @@ All in the root namespace `FluentGwt` (extension classes included, so a test fil
 | `target.Given()`, `Given.With(...)` | Existing entry points; both kept. |
 | `.Given(value)`, `.Given(name, value)`, `.Given(key, value)` | State givens (existing). |
 | `.Given(«step»)`, `.Given((x, state) => ...)` | Transition givens (existing, widened). |
-| `.Given(FixtureRow<Target, Value>)` | Evaluate a fixture-relative theory row into state. |
+| `.Given(FixtureRow<Value>)`, `.Given(row, «step»)` | Evaluate a fixture-relative theory row into state, or hand it to the fixture as `(x, value)`. |
 | `.Get<Value>()`, `.Get<Value>(name)`, `.Get<Value>(key)` | Read state (existing). |
 | `.Deferred()` | Defer the preceding given to phase 3. |
 | `.And(«step»)` on `Given<Target>` | Another transition. |
@@ -2137,7 +2190,7 @@ builder `.To(host)`; givens `GivenAuthenticatedUser()`, `GivenAuthenticatedUser(
 `GivenAnonymousUser()`, `GivenClaim(...)`, `GivenRole(...)`, `GivenPolicy(...)` (each taking the
 host where a fixture has more than one, and defaulting to the only host otherwise).
 
-**Analysers package** — diagnostics `FG0001`, `FG0002`, `FG0003` and their code fixes (C25).
+**Analysers package** — diagnostics `FG0001`, `FG0002`, `FG0003`, `FG0004` and their code fixes (C25).
 
 ---
 
@@ -2218,7 +2271,7 @@ extension methods in the root namespace, with `TryAdd` defaults.
 | `FluentGwt.Moq` | `Stub<Service>()` | core, `Moq` |
 | `FluentGwt.Http` | `RedirectHttp`, responders, request recording | core, `Microsoft.Extensions.Http` |
 | `FluentGwt.AspNetCore` | `ApplicationHost`, host overrides (a `ConfigureServices` callback on the application's own collection, so hosted-service removals apply there), scopes, stubbed authentication and authorisation records, host-to-host redirection, socket hosting for entry-point hosts | core, `.Http`, `Microsoft.AspNetCore.Mvc.Testing` (and `Microsoft.AspNetCore.App` framework reference) |
-| `FluentGwt.Analysers` | Roslyn analysers and code fixes `FG0001`–`FG0003`; no runtime code | `Microsoft.CodeAnalysis.CSharp.Workspaces` (analyser asset only) |
+| `FluentGwt.Analysers` | Roslyn analysers and code fixes `FG0001`–`FG0004`; no runtime code | `Microsoft.CodeAnalysis.CSharp.Workspaces` (analyser asset only) |
 
 ---
 

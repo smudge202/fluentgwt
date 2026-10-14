@@ -30,6 +30,11 @@ public sealed class Then<Target, Result>
 
 	public Then<Target, Result> And(Action<Target, Result> assertion) => Followed(Step.From(assertion));
 
+	[OverloadResolutionPriority(1)]
+	public Then<Target, Result> And(Func<Target, Result, Task> assertion) => Followed(Step.From(assertion));
+
+	public Then<Target, Result> And(Func<Target, Result, ValueTask> assertion) => Followed(Step.From(assertion));
+
 	public Then<Target, Result> AndFixture(Action<Target> assertion) => Followed(Step.OnTarget<Target, Result>(Step.From(assertion)));
 
 	[OverloadResolutionPriority(1)]

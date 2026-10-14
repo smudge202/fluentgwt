@@ -38,6 +38,28 @@ public sealed partial class TestHostTests
 			.Then((x, token) => token.Should().Be(x.Cancellation));
 
 	[Fact]
+	public Task WhenScopeIsGivenAsyncWorkThenItIsAwaitedInsideTheScope()
+		=> Context
+			.Given()
+			.When(x => x.Api.Scope(async services =>
+			{
+				await Task.Yield();
+				x.Seen = services.GetRequiredService<Greeter>().Greet();
+			}))
+			.Then(x => x.Seen.Should().Be("Hello"));
+
+	[Fact]
+	public Task WhenAsyncScopeWorkFailsThenTheScopeFaultsWithItsException()
+		=> Context
+			.Given()
+			.When(x => x.Api.Scope(async _ =>
+			{
+				await Task.Yield();
+				throw new InvalidOperationException("scope work failed");
+			}))
+			.ThenThrows<InvalidOperationException>(e => e.Message.Should().Be("scope work failed"));
+
+	[Fact]
 	public Task WhenDeferredGivenSeedsThroughHostThenActSeesTheData()
 		=> Context
 			.Given(x => x.Api.Scope(services => services.GetRequiredService<Journal>().Entries.Enqueue("seeded")))

@@ -77,6 +77,97 @@ public sealed partial class ChainTests
 			.And(x => x.Probe.Acts.Should().Be(0));
 
 	[Fact]
+	public Task WhenAsyncAssertionOnTheExceptionIsUsedThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Fail()).ThenThrows<InvalidOperationException>(async e =>
+			{
+				await Task.Yield();
+				x.Asserted = e;
+			}))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().BeSameAs(x.Probe.Failure));
+
+	[Fact]
+	public Task WhenAssertionOnTheExceptionReturnsValueTaskThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Fail()).ThenThrows<InvalidOperationException>(e => x.AssertLater(e)))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().BeSameAs(x.Probe.Failure));
+
+	[Fact]
+	public Task WhenAsyncAssertionOnFixtureAndExceptionIsUsedThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Fail()).ThenThrows<InvalidOperationException>(async (p, e) =>
+			{
+				await Task.Yield();
+				x.Asserted = (p, (Exception)e);
+			}))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be((x.Probe, x.Probe.Failure)));
+
+	[Fact]
+	public Task WhenAssertionOnFixtureAndExceptionReturnsValueTaskThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Fail()).ThenThrows<InvalidOperationException>((p, e) => x.AssertLater((p, (Exception)e))))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be((x.Probe, x.Probe.Failure)));
+
+	[Fact]
+	public Task WhenAsyncAssertionOnTheExceptionFailsThenItsExceptionFaultsTheChain()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Fail()).ThenThrows<InvalidOperationException>(async e =>
+			{
+				await Task.Yield();
+				e.Message.Should().Be("a different message");
+			}))
+			.WhenExecutingTheChainCapturingFailure()
+			.Then(x => x.Failure!.Message.Should().Contain("a different message"));
+
+	[Fact]
+	public Task WhenActWithResultThrowsThenAsyncAssertionOnTheExceptionIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.AnswerOrFail()).ThenThrows<InvalidOperationException>(async e =>
+			{
+				await Task.Yield();
+				x.Asserted = e;
+			}))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().BeSameAs(x.Probe.Failure));
+
+	[Fact]
+	public Task WhenActWithResultThrowsThenAsyncAssertionOnFixtureAndExceptionIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.AnswerOrFail()).ThenThrows<InvalidOperationException>(async (p, e) =>
+			{
+				await Task.Yield();
+				x.Asserted = (p, (Exception)e);
+			}))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be((x.Probe, x.Probe.Failure)));
+
+	[Fact]
+	public Task WhenAsyncAssertionFollowsThenThrowsExactlyThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given().When(p => p.Fail()).ThenThrowsExactly<InvalidOperationException>(async (p, e) =>
+			{
+				await Task.Yield();
+				x.Asserted = (p, (Exception)e);
+			}))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().Be((x.Probe, x.Probe.Failure)));
+
+	[Fact]
+	public Task WhenAsyncAssertionFollowsThenArrangementFailsThenItIsAwaited()
+		=> Context
+			.GivenChain(x => x.Probe.Given(p => p.Fail()).When(p => p.Act()).ThenArrangementFails<InvalidOperationException>(async e =>
+			{
+				await Task.Yield();
+				x.Asserted = e;
+			}))
+			.WhenExecutingTheChain()
+			.Then(x => x.Asserted.Should().BeSameAs(x.Probe.Failure));
+
+	[Fact]
 	public Task WhenAndFollowsThrowsThenItReceivesTheFixture()
 		=> Context
 			.GivenChain(x => x.Probe.Given().When(p => p.Fail()).ThenThrows<InvalidOperationException>().And(p => x.Asserted = p))

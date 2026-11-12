@@ -30,6 +30,7 @@ jobs:
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
+          dotnet-version: 10.0.x
           global-json-file: global.json
 
       - name: Build
@@ -81,7 +82,7 @@ jobs:
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
 
       - name: Exchange the GitHub token for a short-lived nuget.org key
         id: login

@@ -305,8 +305,14 @@ public sealed partial class ApplicationHost : FixtureHost
 			app.Start();
 			return InMemory(app.GetTestServer(), app.Services, async () =>
 			{
-				await app.StopAsync();
-				await app.DisposeAsync();
+				try
+				{
+					await app.StopAsync();
+				}
+				finally
+				{
+					await app.DisposeAsync();
+				}
 			});
 		}
 		catch

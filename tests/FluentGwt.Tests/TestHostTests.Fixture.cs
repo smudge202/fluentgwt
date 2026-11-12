@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using FluentGwt.Tests.Web;
+using Microsoft.Extensions.Hosting;
 
 namespace FluentGwt.Tests;
 
@@ -27,5 +28,20 @@ public sealed partial class TestHostTests
 	internal sealed class ShoutingGreeter : Greeter
 	{
 		public string Greet() => "HELLO";
+	}
+
+	internal sealed class CrashingService(Journal journal) : BackgroundService
+	{
+		public override void Dispose()
+		{
+			journal.Entries.Enqueue("disposed crashing");
+			base.Dispose();
+		}
+
+		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+		{
+			await Task.Yield();
+			throw new InvalidOperationException("Crashed in the background");
+		}
 	}
 }

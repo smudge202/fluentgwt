@@ -93,6 +93,13 @@ public sealed partial class TestHostTests
 			.Then(journal => journal.Should().Contain(["stop composed", "stop api"]));
 
 	[Fact]
+	public Task WhenComposedHostBackgroundServiceFailsThenTheHostIsStillDisposed()
+		=> Context
+			.Given()
+			.WhenAFreshFixtureRunsItsChain(CrashingInTheBackground)
+			.Then(journal => journal.Should().Contain("disposed crashing"));
+
+	[Fact]
 	public Task WhenHostServiceIsOverriddenThenApplicationEnumerableContainsOnlyTheOverride()
 		=> Context
 			.Given(x => x.Api.ConfigureServices(services => services.AddSingleton<Greeter>(new ShoutingGreeter()).Override<Greeter>(new ShoutingGreeter())))
@@ -173,4 +180,9 @@ public sealed partial class TestHostTests
 		=> fixture
 			.Given(x => x.Api.Configure("Web:Name", "api").ConfigureServices(services => services.Override(x.Journal)))
 			.Given(x => x.Composed.Configure("Web:Name", "composed").ConfigureServices(services => services.Override(x.Journal)));
+
+	private static Given<Fixture> CrashingInTheBackground(Fixture fixture)
+		=> fixture
+			.Given(x => x.Composed.ConfigureServices(services => services.Override(x.Journal).AddHostedService<CrashingService>()))
+			.Given(x => x.Composed.Stopping());
 }

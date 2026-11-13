@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
+		<!-- Clears the solution-wide TargetFrameworks; GetTargetPath, which packing the analysers needs, exists only on a single-target project. -->
+		<TargetFrameworks></TargetFrameworks>
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<AssemblyName>FluentGwt.Analysers</AssemblyName>
 		<RootNamespace>FluentGwt.Analysers</RootNamespace>

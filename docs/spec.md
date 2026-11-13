@@ -2577,7 +2577,7 @@ is and what the licence is.
 - CI status for `dev` and for `main` (the D2 workflow's badge);
 - nuget.org version for each package (`FluentGwt`, `.Xunit`, `.AspNetCore`, `.Http`, `.Moq`,
   `.Bogus`, `.Analysers`), and total downloads for `FluentGwt`;
-- licence (Apache-2.0) and target framework (.NET 10).
+- licence (Apache-2.0) and target frameworks (.NET 10 and .NET 11).
 
 Badges for packages that are not yet published are added with the first publish, not before — a
 badge reading "not found" is worse than none.

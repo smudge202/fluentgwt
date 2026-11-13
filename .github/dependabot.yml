@@ -12,6 +12,13 @@ updates:
       # Microsoft.CodeAnalysis.Analyzers, say) drags the compiler packages along with it.
       # Raise them together, deliberately, when the minimum SDK moves.
       - dependency-name: "Microsoft.CodeAnalysis*"
+      # Each target framework references the Microsoft packages of its own major version, so a major
+      # update would move the older framework's references onto the newer runtime's packages. Raise
+      # them by hand when a target framework is added or dropped.
+      - dependency-name: "Microsoft.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.*"
+        update-types: ["version-update:semver-major"]
     groups:
       microsoft:
         patterns: ["Microsoft.*", "System.*"]

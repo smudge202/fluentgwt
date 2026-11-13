@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting;
 using static FluentGwt.Tests.TestHostTests;
 
 namespace FluentGwt.Tests;
@@ -12,6 +13,13 @@ internal static class TestHostTestsFluent
 		using var client = host.CreateClient();
 		using var response = await client.GetAsync(new Uri(path, UriKind.Relative), cancellationToken);
 		return new(response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken), response.Headers);
+	}
+
+	public static Task Stopping(this ApplicationHost host)
+	{
+		var stopping = new TaskCompletionSource();
+		host.Resolve<IHostApplicationLifetime>().ApplicationStopping.Register(stopping.SetResult);
+		return stopping.Task;
 	}
 
 	public static When<Fixture, string[]> WhenAFreshFixtureRunsItsChain(this Given<Fixture> given, Func<Fixture, Given<Fixture>> arrange, bool failing = false)
